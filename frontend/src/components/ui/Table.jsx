@@ -54,7 +54,11 @@ export default function Table({
                     key={`${column.key}-${key}`}
                     className="px-4 py-3 border-b border-gray-200 text-gray-900"
                   >
-                    {column.format ? column.format(row[column.key], row) : row[column.key]}
+                    {column.render
+                      ? column.render(row, row[column.key])
+                      : column.format
+                        ? column.format(row[column.key], row)
+                        : row[column.key]}
                   </td>
                 ))}
               </tr>

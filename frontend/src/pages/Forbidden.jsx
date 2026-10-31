@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { isMockEnabled } from '../api/mockHelper';
 import { USER_ROLES } from '../utils/constants';
 import Button from '../components/ui/Button';
 
 export default function Forbidden() {
-  const { user, switchMockRole } = useAuth();
-  const mockActive = isMockEnabled();
+  const { user } = useAuth();
 
-  const homePath = user?.role === USER_ROLES.customer ? '/portal' : '/dashboard';
+  const homePath = String(user?.role).toUpperCase() === USER_ROLES.customer.toUpperCase()
+    ? '/portal'
+    : '/dashboard';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -38,27 +38,7 @@ export default function Forbidden() {
             <Button variant="outline">Sign In As Different User</Button>
           </Link>
         </div>
-
-        {mockActive && (
-          <div className="mt-8 p-4 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm mx-auto">
-            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
-              Mock Role Quick Switch
-            </p>
-            <div className="flex justify-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => switchMockRole('admin')}>
-                Admin
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => switchMockRole('staff')}>
-                Staff
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => switchMockRole('customer')}>
-                Customer
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 }
-

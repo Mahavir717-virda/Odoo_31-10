@@ -1,47 +1,36 @@
 import { useState, useEffect } from 'react';
 import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
-import Checkbox from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
+import { isPasswordValid } from '../../../utils/passwordRules';
 
-export default function StaffFormModal({ open, onClose, onSubmit, staff = null }) {
+export default function StaffFormModal({ open, onClose, onSubmit }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('STAFF');
+  const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
-  const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (staff) {
-      setName(staff.name || '');
-      setEmail(staff.email || '');
-      setRole(staff.role ? String(staff.role).toUpperCase() : 'STAFF');
-      setPhone(staff.phone || '');
-      setCompany(staff.company || '');
-      setIsActive(staff.is_active !== undefined ? Boolean(staff.is_active) : true);
-    } else {
-      setName('');
-      setEmail('');
-      setRole('STAFF');
-      setPhone('');
-      setCompany('Brightloop Operations');
-      setIsActive(true);
-    }
+    setName('');
+    setEmail('');
+    setPassword('');
+    setPhone('');
+    setCompany('');
     setErrors({});
-  }, [staff, open]);
+    setFormError('');
+  }, [open]);
 
   const validate = () => {
     const errs = {};
-    if (!name.trim()) {
-      errs.name = 'Full name is required.';
-    }
-    if (!email.trim() || !email.includes('@')) {
+    if (!name.trim()) errs.name = 'Full name is required.';
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errs.email = 'A valid email address is required.';
     }
+    if (!isPasswordValid(password)) errs.password = 'Password must be at least 9 characters and include an uppercase letter, lowercase letter, and special character.';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -51,16 +40,18 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
     if (!validate()) return;
 
     setSubmitting(true);
+    setFormError('');
     try {
       await onSubmit({
         name: name.trim(),
         email: email.trim(),
-        role,
+        password,
         phone: phone.trim(),
         company: company.trim(),
-        is_active: isActive,
       });
       onClose();
+    } catch (error) {
+      setFormError(error?.message || 'Unable to create staff account.');
     } finally {
       setSubmitting(false);
     }
@@ -70,9 +61,10 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
     <Modal
       open={open}
       onClose={onClose}
-      title={staff ? 'Edit Staff Member' : 'Add New Staff Member'}
+      title="Add New Staff Member"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
         <Input
           id="staff-modal-name"
           label="Full Name"
@@ -102,18 +94,17 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
           required
         />
 
+        <Input
+          id="staff-modal-password"
+          label="Temporary Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={Boolean(errors.password)}
+          errorMessage={errors.password}
+          required
+        />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            id="staff-modal-role"
-            label="Role Permission"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            options={[
-              { value: 'STAFF', label: 'Staff (Standard Ops)' },
-              { value: 'ADMIN', label: 'Admin (Full Access)' },
-            ]}
-          />
-
           <Input
             id="staff-modal-phone"
             label="Phone"
@@ -131,25 +122,15 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
           placeholder="e.g. Brightloop Operations"
         />
 
-        <div className="pt-1">
-          <Checkbox
-            id="staff-modal-is-active"
-            label="Active account (can log into the system)"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-          />
-        </div>
-
         <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" loading={submitting}>
-            {staff ? 'Save Changes' : 'Add Staff Member'}
+            Add Staff Member
           </Button>
         </div>
       </form>
     </Modal>
   );
 }
-

@@ -9,6 +9,7 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
   const [ratePercent, setRatePercent] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
       setIsActive(true);
     }
     setErrors({});
+    setFormError('');
   }, [tax, open]);
 
   const validate = () => {
@@ -44,6 +46,7 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
     if (!validate()) return;
 
     setSubmitting(true);
+    setFormError('');
     try {
       await onSubmit({
         name: name.trim(),
@@ -51,6 +54,8 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
         is_active: isActive,
       });
       onClose();
+    } catch (error) {
+      setFormError(error?.message || 'Unable to save tax rate.');
     } finally {
       setSubmitting(false);
     }
@@ -63,6 +68,7 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
       title={tax ? 'Edit Tax Rate' : 'Add New Tax Rate'}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
         <Input
           id="tax-name"
           label="Tax Name"
@@ -116,4 +122,3 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
     </Modal>
   );
 }
-

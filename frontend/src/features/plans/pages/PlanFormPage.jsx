@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import PageHeader from '../../../components/layout/PageHeader';
 import Input from '../../../components/ui/Input';
@@ -29,31 +29,38 @@ export default function PlanFormPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loadError, setLoadError] = useState('');
+  const [formError, setFormError] = useState('');
 
-  useEffect(() => {
-    if (isEditing) {
-      setLoading(true);
-      getPlanById(id)
-        .then((plan) => {
-          if (plan) {
-            setName(plan.name || '');
-            setPrice(plan.price !== undefined ? String(plan.price) : '');
-            setBillingPeriod(plan.billing_period || 'MONTHLY');
-            setMinQuantity(plan.min_quantity !== undefined ? String(plan.min_quantity) : '1');
-            setStartDate(
-              plan.start_date ? plan.start_date.split('T')[0] : new Date().toISOString().split('T')[0]
-            );
-            setEndDate(plan.end_date ? plan.end_date.split('T')[0] : '');
-            setAutoClose(Boolean(plan.auto_close));
-            setClosable(plan.closable !== undefined ? Boolean(plan.closable) : true);
-            setPausable(Boolean(plan.pausable));
-            setRenewable(plan.renewable !== undefined ? Boolean(plan.renewable) : true);
-            setStatus(plan.status || 'ACTIVE');
-          }
-        })
-        .finally(() => setLoading(false));
+  const loadPlan = useCallback(async () => {
+    if (!isEditing) return;
+    setLoading(true);
+    setLoadError('');
+    try {
+      const plan = await getPlanById(id);
+      if (!plan) {
+        setLoadError('Plan not found.');
+        return;
+      }
+      setName(plan.name || '');
+      setPrice(plan.price !== undefined ? String(plan.price) : '');
+      setBillingPeriod(plan.billing_period || 'MONTHLY');
+      setMinQuantity(plan.min_quantity !== undefined ? String(plan.min_quantity) : '1');
+      setStartDate(plan.start_date ? plan.start_date.split('T')[0] : new Date().toISOString().split('T')[0]);
+      setEndDate(plan.end_date ? plan.end_date.split('T')[0] : '');
+      setAutoClose(Boolean(plan.auto_close));
+      setClosable(plan.closable !== undefined ? Boolean(plan.closable) : true);
+      setPausable(Boolean(plan.pausable));
+      setRenewable(plan.renewable !== undefined ? Boolean(plan.renewable) : true);
+      setStatus(plan.status || 'ACTIVE');
+    } catch (error) {
+      setLoadError(error?.message || 'Unable to load plan details.');
+    } finally {
+      setLoading(false);
     }
   }, [id, isEditing]);
+
+  useEffect(() => { loadPlan(); }, [loadPlan]);
 
   const validate = () => {
     const errs = {};
@@ -84,6 +91,7 @@ export default function PlanFormPage() {
     if (!validate()) return;
 
     setSaving(true);
+    setFormError('');
     const payload = {
       name: name.trim(),
       price: Number(price),
@@ -105,6 +113,8 @@ export default function PlanFormPage() {
         await createPlan(payload);
       }
       navigate('/plans');
+    } catch (error) {
+      setFormError(error?.message || 'Unable to save plan.');
     } finally {
       setSaving(false);
     }
@@ -130,7 +140,14 @@ export default function PlanFormPage() {
       />
 
       <Card className="max-w-3xl bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
+        {loadError && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{loadError}</span>
+            <Button size="sm" variant="outline" onClick={loadPlan}>Retry</Button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
+          {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
           <Input
             id="plan-form-name"
             label="Plan Name"

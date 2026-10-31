@@ -5,6 +5,7 @@ import Table from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import SearchInput from '../../../components/ui/SearchInput';
+import Select from '../../../components/ui/Select';
 import Pagination from '../../../components/ui/Pagination';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import usePaginatedList from '../../../hooks/usePaginatedList';
@@ -30,6 +31,7 @@ export default function PlanListPage() {
     confirmVariant: 'danger',
     action: null,
   });
+  const [actionError, setActionError] = useState('');
 
   const {
     data,
@@ -38,10 +40,20 @@ export default function PlanListPage() {
     pageSize,
     search,
     loading,
+    error,
     setPage,
     setSearch,
+    setFilters,
+    filters,
     load,
   } = usePaginatedList(getPlans);
+
+  const updateFilter = (key, value) => {
+    const next = { ...filters };
+    if (value) next[key] = value;
+    else delete next[key];
+    setFilters(next);
+  };
 
   // Close plan with confirmation
   const handleRequestClose = (plan) => {
@@ -58,17 +70,14 @@ export default function PlanListPage() {
     });
   };
 
-  // Pause / Resume with confirmation
+  // Pause with confirmation
   const handleRequestTogglePause = (plan) => {
-    const isCurrentlyActive = plan.status === 'ACTIVE';
     setConfirmModal({
       open: true,
-      title: isCurrentlyActive ? 'Pause Subscription Plan' : 'Resume Subscription Plan',
-      message: isCurrentlyActive
-        ? `Are you sure you want to PAUSE "${plan.name}"? Billing runs for this plan will be temporarily suspended.`
-        : `Resume "${plan.name}" to ACTIVE status?`,
-      confirmLabel: isCurrentlyActive ? 'Pause Plan' : 'Resume Plan',
-      confirmVariant: isCurrentlyActive ? 'danger' : 'primary',
+      title: 'Pause Subscription Plan',
+      message: `Are you sure you want to PAUSE "${plan.name}"? Billing runs for this plan will be temporarily suspended.`,
+      confirmLabel: 'Pause Plan',
+      confirmVariant: 'danger',
       action: async () => {
         await togglePausePlan(plan.id);
         load();
@@ -225,11 +234,40 @@ export default function PlanListPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-        <div className="max-w-md mb-4">
+        {(error || actionError) && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{actionError || error?.message}</span>
+            <Button size="sm" variant="outline" onClick={() => { setActionError(''); load(); }}>Retry</Button>
+          </div>
+        )}
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <SearchInput
             value={search}
             onChange={(val) => setSearch(val)}
             placeholder="Search plans by name..."
+          />
+          <Select
+            value={filters.status || ''}
+            onChange={(event) => updateFilter('status', event.target.value)}
+            aria-label="Filter plans by status"
+            options={[
+              { value: '', label: 'All statuses' },
+              { value: 'ACTIVE', label: 'Active' },
+              { value: 'PAUSED', label: 'Paused' },
+              { value: 'CLOSED', label: 'Closed' },
+            ]}
+          />
+          <Select
+            value={filters.billing_period || ''}
+            onChange={(event) => updateFilter('billing_period', event.target.value)}
+            aria-label="Filter plans by billing period"
+            options={[
+              { value: '', label: 'All billing periods' },
+              { value: 'DAILY', label: 'Daily' },
+              { value: 'WEEKLY', label: 'Weekly' },
+              { value: 'MONTHLY', label: 'Monthly' },
+              { value: 'YEARLY', label: 'Yearly' },
+            ]}
           />
         </div>
 
@@ -259,9 +297,14 @@ export default function PlanListPage() {
         confirmVariant={confirmModal.confirmVariant}
         onConfirm={async () => {
           if (confirmModal.action) {
-            await confirmModal.action();
+            try {
+              await confirmModal.action();
+              setActionError('');
+              setConfirmModal((prev) => ({ ...prev, open: false }));
+            } catch (actionFailure) {
+              setActionError(actionFailure?.message || 'Unable to complete plan action.');
+            }
           }
-          setConfirmModal((prev) => ({ ...prev, open: false }));
         }}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
       />

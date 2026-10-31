@@ -4,6 +4,7 @@ import Table from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import SearchInput from '../../../components/ui/SearchInput';
+import Select from '../../../components/ui/Select';
 import Pagination from '../../../components/ui/Pagination';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import usePaginatedList from '../../../hooks/usePaginatedList';
@@ -14,6 +15,7 @@ export default function TaxListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTax, setEditingTax] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   const {
     data,
@@ -22,8 +24,11 @@ export default function TaxListPage() {
     pageSize,
     search,
     loading,
+    error,
     setPage,
     setSearch,
+    setFilters,
+    filters,
     load,
   } = usePaginatedList(getTaxes);
 
@@ -38,19 +43,30 @@ export default function TaxListPage() {
   };
 
   const handleSave = async (formData) => {
-    if (editingTax) {
-      await updateTax(editingTax.id, formData);
-    } else {
-      await createTax(formData);
+    try {
+      if (editingTax) {
+        await updateTax(editingTax.id, formData);
+      } else {
+        await createTax(formData);
+      }
+      setActionError('');
+      load();
+    } catch (saveError) {
+      setActionError(saveError?.message || 'Unable to save tax rate.');
+      throw saveError;
     }
-    load();
   };
 
   const handleConfirmDelete = async () => {
     if (deleteTargetId) {
-      await deleteTax(deleteTargetId);
-      setDeleteTargetId(null);
-      load();
+      try {
+        await deleteTax(deleteTargetId);
+        setDeleteTargetId(null);
+        setActionError('');
+        load();
+      } catch (deleteError) {
+        setActionError(deleteError?.message || 'Unable to delete tax rate.');
+      }
     }
   };
 
@@ -113,11 +129,27 @@ export default function TaxListPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-        <div className="max-w-md mb-4">
+        {(error || actionError) && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{actionError || error?.message}</span>
+            <Button size="sm" variant="outline" onClick={() => { setActionError(''); load(); }}>Retry</Button>
+          </div>
+        )}
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
           <SearchInput
             value={search}
             onChange={(val) => setSearch(val)}
             placeholder="Search taxes by name..."
+          />
+          <Select
+            value={filters.is_active ?? ''}
+            onChange={(event) => setFilters(event.target.value ? { is_active: event.target.value } : {})}
+            aria-label="Filter taxes by status"
+            options={[
+              { value: '', label: 'All statuses' },
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ]}
           />
         </div>
 

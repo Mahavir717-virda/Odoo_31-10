@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { isMockEnabled } from '../../../api/mockHelper';
 import AuthCard from '../components/AuthCard';
 import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
@@ -10,17 +9,17 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const mockActive = isMockEnabled();
+  const [searchParams] = useSearchParams();
 
-  const [email, setEmail] = useState('admin@brightloop.test');
-  const [password, setPassword] = useState('Admin@1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const redirectAfterLogin = (user) => {
-    const from = location.state?.from?.pathname;
+    const from = location.state?.from?.pathname || searchParams.get('redirect');
     const userRole = String(user?.role || '').toUpperCase();
-    if (from && !from.startsWith('/login') && !from.startsWith('/forbidden')) {
+    if (from?.startsWith('/') && !from.startsWith('//') && !from.startsWith('/login') && !from.startsWith('/forbidden')) {
       navigate(from, { replace: true });
     } else if (userRole === 'CUSTOMER') {
       navigate('/portal', { replace: true });
@@ -38,21 +37,6 @@ export default function LoginPage() {
       redirectAfterLogin(user);
     } catch (err) {
       setError(err?.message || 'Failed to sign in. Please verify your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickMockLogin = async (mockEmail, mockPassword, role) => {
-    setEmail(mockEmail);
-    setPassword(mockPassword);
-    setError('');
-    setLoading(true);
-    try {
-      const { user } = await login({ email: mockEmail, password: mockPassword, role });
-      redirectAfterLogin(user);
-    } catch (err) {
-      setError(err?.message || 'Quick login failed.');
     } finally {
       setLoading(false);
     }
@@ -84,7 +68,7 @@ export default function LoginPage() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="admin@brightloop.test"
+          placeholder="you@company.com"
           required
         />
 
@@ -113,42 +97,6 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      {mockActive && (
-        <div className="mt-6 pt-5 border-t border-gray-100">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 text-center mb-3">
-            Quick Mock Accounts (Seed Data)
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleQuickMockLogin('admin@brightloop.test', 'Admin@1234', 'ADMIN')}
-              disabled={loading}
-              title="admin@brightloop.test (Admin@1234)"
-            >
-              Admin
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleQuickMockLogin('staff@brightloop.test', 'Staff@1234', 'STAFF')}
-              disabled={loading}
-              title="staff@brightloop.test (Staff@1234)"
-            >
-              Staff
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleQuickMockLogin('customer1@acme.test', 'Customer@1234', 'CUSTOMER')}
-              disabled={loading}
-              title="customer1@acme.test (Customer@1234)"
-            >
-              Customer
-            </Button>
-          </div>
-        </div>
-      )}
     </AuthCard>
   );
 }

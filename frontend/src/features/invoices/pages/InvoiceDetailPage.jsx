@@ -1,179 +1,67 @@
-import { useEffect, useState } from 'react';
-
-import Button from '../../../components/ui/Button';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../../components/ui/Badge';
+import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
 import EmptyState from '../../../components/ui/EmptyState';
 import Spinner from '../../../components/ui/Spinner';
-import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
-import { getInvoice, isOverdue } from '../api';
-import InvoiceTotals from '../components/InvoiceTotals';
-import InvoiceActions from '../components/InvoiceActions';
+import { formatMoney } from '../../../utils/formatMoney';
 import PaymentHistory from '../../payments/components/PaymentHistory';
 import RecordPaymentModal from '../../payments/components/RecordPaymentModal';
+import { getInvoice, isOverdue } from '../api';
+import InvoiceActions from '../components/InvoiceActions';
+import InvoiceTotals from '../components/InvoiceTotals';
 
-const STATUS_VARIANTS = {
-  draft: 'default',
-  open: 'info',
-  confirmed: 'default',
-  unpaid: 'danger',
-  paid: 'success',
-  cancelled: 'default',
-};
-
-export default function InvoiceDetailPage({ invoiceId }) {
-  const id = invoiceId || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null);
+export default function InvoiceDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [openPayment, setOpenPayment] = useState(false);
+  const [error, setError] = useState('');
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentRefresh, setPaymentRefresh] = useState(0);
 
-  useEffect(() => {
-    if (!id) return;
+  const load = useCallback(async () => {
     setLoading(true);
-    getInvoice(id)
-      .then((response) => setInvoice(response.data))
-      .catch((err) => setError(err.message || 'Failed to load invoice.'))
-      .finally(() => setLoading(false));
+    setError('');
+    try { setInvoice(await getInvoice(id)); }
+    catch (loadError) { setError(loadError.message || 'Unable to load invoice.'); }
+    finally { setLoading(false); }
   }, [id]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center text-gray-500">
-        <Spinner />
-      </div>
-    );
-  }
+  useEffect(() => { load(); }, [load]);
 
-  if (error) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center text-center text-red-600">
-        <p>{error}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
-      </div>
-    );
-  }
+  const handlePrint = () => window.print();
 
-  if (!invoice) {
-    return <EmptyState title="Invoice not found" description="The invoice you requested does not exist." />;
-  }
+  if (loading) return <div className="flex min-h-64 items-center justify-center"><Spinner /></div>;
+  if (error) return <div className="space-y-4"><p className="rounded border border-red-200 bg-red-50 p-3 text-red-800" role="alert">{error}</p><Button variant="outline" onClick={load}>Retry</Button></div>;
+  if (!invoice) return <EmptyState title="Invoice not found" description="This invoice may have been removed or is unavailable to your account." />;
 
+  const status = String(invoice.status ?? '').toUpperCase();
   const overdue = isOverdue(invoice);
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Invoice {invoice.invoice_number}</h1>
-          <p className="text-gray-600">
-            {invoice.customer_name} • {invoice.subscription_name}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={STATUS_VARIANTS[invoice.status] ?? 'default'}>
-            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-          </Badge>
-          {overdue && (
-            <Badge variant="danger">Overdue</Badge>
-          )}
-        </div>
+    <div className="space-y-6 print:space-y-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div><Link to="/invoices" className="text-sm text-indigo-600 hover:underline print:hidden">Back to invoices</Link><h1 className="mt-2 text-2xl font-bold text-gray-900">Invoice {invoice.number}</h1><p className="text-gray-600">{invoice.customer_name} · Subscription {invoice.subscription_number}</p></div>
+        <div className="flex flex-wrap items-center gap-2 print:hidden"><Badge variant={status === 'PAID' ? 'success' : status === 'CANCELLED' ? 'default' : 'info'}>{status}</Badge>{overdue && <Badge variant="danger">Overdue</Badge>}<Button variant="outline" onClick={handlePrint}>Print</Button></div>
       </div>
-
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Customer</h3>
-            <p className="text-gray-900">{invoice.customer_name}</p>
-            <p className="text-sm text-gray-500 mt-1">{invoice.customer_name}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Subscription</h3>
-            <p className="text-gray-900">{invoice.subscription_name}</p>
-            <p className="text-sm text-gray-500 mt-1">{invoice.subscription_name}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Dates</h3>
-            <p className="text-gray-900">{formatDate(invoice.issue_date)}</p>
-            <p className="text-sm text-gray-500 mt-1">Issue date</p>
-            <p className="text-gray-900">{formatDate(invoice.due_date)}</p>
-            <p className="text-sm text-gray-500 mt-1">Due date</p>
-          </div>
-        </div>
+        <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Customer</dt><dd className="mt-1 font-medium text-gray-900">{invoice.customer_name}</dd><dd className="text-sm text-gray-500">{invoice.customer_email}</dd><dd className="text-sm text-gray-500">{invoice.customer_company}</dd><dd className="text-sm text-gray-500">{invoice.customer_phone}</dd><dd className="text-sm text-gray-500">{invoice.customer_address}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Subscription</dt><dd className="mt-1 text-gray-900">{invoice.subscription_number}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Dates</dt><dd className="mt-1 text-gray-900">Invoice: {formatDate(invoice.invoice_date)}</dd><dd className="text-gray-900">Due: {formatDate(invoice.due_date)}</dd><dd className="text-sm text-gray-500">{invoice.period_start && invoice.period_end ? `Period ${formatDate(invoice.period_start)} – ${formatDate(invoice.period_end)}` : ''}</dd></div>
+        </dl>
       </Card>
-
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Totals</h3>
-        <InvoiceTotals invoice={invoice} />
-      </Card>
-
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Line Items</h3>
-        <div className="overflow-x-auto border border-gray-200 rounded-md">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">Description</th>
-                <th className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">Qty</th>
-                <th className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">Unit Price</th>
-                <th className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">Discount</th>
-                <th className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">Tax</th>
-                <th className="px-4 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {invoice.lines.map((line) => (
-                <tr key={line.id} className="text-gray-900">
-                  <td className="px-4 py-3 border-b border-gray-200">{line.description}</td>
-                  <td className="px-4 py-3 border-b border-gray-200">{line.quantity}</td>
-                  <td className="px-4 py-3 border-b border-gray-200">{formatMoney(line.unit_price)}</td>
-                  <td className="px-4 py-3 border-b border-gray-200">{line.discount_percent}%</td>
-                  <td className="px-4 py-3 border-b border-gray-200">{formatMoney(line.tax_amount)}</td>
-                  <td className="px-4 py-3 border-b border-gray-200 font-semibold">{formatMoney(line.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Actions</h3>
-          <InvoiceActions invoice={invoice} onSuccess={(action) => {
-            if (action === 'record_payment') {
-              setOpenPayment(true);
-            } else {
-              setInvoice(null);
-              setLoading(true);
-              getInvoice(id)
-                .then((response) => setInvoice(response.data))
-                .catch((err) => setError(err.message || 'Failed to refresh.'))
-                .finally(() => setLoading(false));
-            }
-          }} />
-        </Card>
-
-        <Card>
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Payment History</h3>
-          <PaymentHistory invoiceId={invoice.id} />
-        </Card>
+      <Card><h2 className="mb-4 font-semibold text-gray-900">Invoice lines</h2><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs uppercase text-gray-500"><th className="px-3 py-2">Description</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Unit price</th><th className="px-3 py-2">Tax</th><th className="px-3 py-2 text-right">Amount</th></tr></thead><tbody>{(invoice.lines ?? []).map((line) => <tr key={line.id} className="border-b"><td className="px-3 py-3">{line.description || line.product_name}</td><td className="px-3 py-3">{line.quantity}</td><td className="px-3 py-3">{formatMoney(line.unit_price)}</td><td className="px-3 py-3">{line.tax_rate}% ({formatMoney(line.tax_amount)})</td><td className="px-3 py-3 text-right font-medium">{formatMoney(Number(line.amount) + Number(line.tax_amount))}</td></tr>)}</tbody></table></div></Card>
+      {invoice.discounts?.length > 0 && <Card><h2 className="mb-3 font-semibold text-gray-900">Discounts</h2><ul className="space-y-2">{invoice.discounts.map((discount) => <li key={discount.id} className="flex justify-between text-sm"><span>{discount.discount_name}</span><span>-{formatMoney(discount.amount)}</span></li>)}</ul></Card>}
+      <Card><h2 className="mb-4 font-semibold text-gray-900">Totals</h2><InvoiceTotals invoice={invoice} /></Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="print:hidden"><h2 className="mb-4 font-semibold text-gray-900">Available actions</h2><InvoiceActions invoice={invoice} onSuccess={(action) => action === 'record_payment' ? setPaymentOpen(true) : load()} /></Card>
+        <Card><h2 className="mb-4 font-semibold text-gray-900">Payment history</h2><PaymentHistory key={`${invoice.id}-${paymentRefresh}`} invoiceId={invoice.id} /></Card>
       </div>
-
-      <RecordPaymentModal
-        open={openPayment}
-        onClose={() => setOpenPayment(false)}
-        invoice={invoice}
-        onSuccess={() => {
-            setOpenPayment(false);
-            setInvoice(null);
-            setLoading(true);
-            getInvoice(id)
-            .then((response) => setInvoice(response.data))
-            .catch((err) => setError(err.message || 'Failed to refresh.'))
-            .finally(() => setLoading(false));
-        }}
-      />
+      <RecordPaymentModal open={paymentOpen} onClose={() => setPaymentOpen(false)} invoice={invoice} onSuccess={async () => { setPaymentOpen(false); setPaymentRefresh((current) => current + 1); await load(); }} />
+      <Button className="print:hidden" variant="outline" onClick={() => navigate('/invoices')}>Return to invoices</Button>
     </div>
   );
 }

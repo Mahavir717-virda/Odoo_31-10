@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      await resetPassword({ token, newPassword: password });
+      await resetPassword({ token, password });
       navigate('/login', { replace: true });
     } catch (err) {
       setError(err?.message || 'Failed to reset password.');
@@ -89,4 +89,3 @@ export default function ResetPasswordPage() {
     </AuthCard>
   );
 }
-

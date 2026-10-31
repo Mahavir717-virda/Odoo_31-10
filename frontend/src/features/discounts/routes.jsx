@@ -11,7 +11,7 @@ export const routes = [
   {
     path: '/discounts/new',
     element: <DiscountFormPage />,
-    roles: [USER_ROLES.admin, USER_ROLES.staff],
+    roles: [USER_ROLES.admin],
   },
   {
     path: '/discounts/:id',
@@ -21,4 +21,3 @@ export const routes = [
 ];
 
 export default routes;
-

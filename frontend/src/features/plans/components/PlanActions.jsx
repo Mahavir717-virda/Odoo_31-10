@@ -9,7 +9,6 @@ export default function PlanActions({
   onDelete,
 }) {
   const isClosed = plan.status === 'CLOSED';
-  const isPaused = plan.status === 'PAUSED';
   const isActive = plan.status === 'ACTIVE';
 
   return (
@@ -23,14 +22,14 @@ export default function PlanActions({
       </Button>
 
       {/* Pausable Action */}
-      {plan.pausable && (
+      {plan.pausable && isActive && (
         <Button
           size="sm"
           variant="outline"
           onClick={() => onTogglePause(plan)}
-          title={isActive ? 'Pause recurring billing' : 'Resume plan'}
+          title="Pause recurring billing"
         >
-          {isActive ? 'Pause' : isPaused ? 'Resume' : 'Toggle'}
+          Pause
         </Button>
       )}
 
@@ -48,7 +47,7 @@ export default function PlanActions({
       )}
 
       {/* Renewable Action */}
-      {plan.renewable && (
+      {plan.renewable && !isActive && (
         <Button
           size="sm"
           variant="outline"

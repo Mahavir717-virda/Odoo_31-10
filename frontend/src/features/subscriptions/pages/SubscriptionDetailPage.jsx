@@ -1,164 +1,114 @@
-import { useEffect, useState } from 'react';
-
-import Button from '../../../components/ui/Button';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../../components/ui/Badge';
+import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import EmptyState from '../../../components/ui/EmptyState';
 import Spinner from '../../../components/ui/Spinner';
-import { formatMoney } from '../../../utils/formatMoney';
+import Table from '../../../components/ui/Table';
+import { useToast } from '../../../components/ui/Toast';
 import { formatDate } from '../../../utils/formatDate';
-import { getSubscription, updateSubscriptionStatus, NEXT_STATUS_ACTION } from '../api';
-import StatusStepper from '../components/StatusStepper';
+import { formatMoney } from '../../../utils/formatMoney';
+import { fetchInvoices } from '../../invoices/api';
+import { getSubscription, updateSubscriptionStatus } from '../api';
 import SubscriptionLines from '../components/SubscriptionLines';
 
-const STATUS_VARIANTS = {
-  active: 'success',
-  draft: 'default',
-  quotation: 'info',
-  confirmed: 'default',
-  closed: 'danger',
-  paused: 'warning',
-  expired: 'danger',
-  cancelled: 'default',
-};
+const NEXT_STATUS = { DRAFT: 'QUOTATION', QUOTATION: 'CONFIRMED', CONFIRMED: 'ACTIVE', ACTIVE: 'CLOSED' };
 
-const PAYMENT_VARIANTS = {
-  paid: 'success',
-  unpaid: 'danger',
-  partial: 'warning',
-  refunded: 'info',
-};
-
-export default function SubscriptionDetailPage({ subscriptionId }) {
+export default function SubscriptionDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [subscription, setSubscription] = useState(null);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [confirmTransition, setConfirmTransition] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    getSubscription(subscriptionId)
-      .then((response) => setSubscription(response.data))
-      .catch((err) => setError(err.message || 'Failed to load subscription.'))
-      .finally(() => setLoading(false));
-  }, [subscriptionId]);
+    setError('');
+    try {
+      const [subscriptionData, invoiceResponse] = await Promise.all([
+        getSubscription(id),
+        fetchInvoices({ page: 1, limit: 10, subscription_id: id }),
+      ]);
+      setSubscription(subscriptionData);
+      setInvoices(invoiceResponse.data);
+    } catch (loadError) {
+      setError(loadError.message || 'Unable to load subscription details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center text-gray-500">
-        <Spinner />
-      </div>
-    );
-  }
+  useEffect(() => { load(); }, [load]);
 
-  if (error) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center text-center text-red-600">
-        <p>{error}</p>
-      </div>
-    );
-  }
+  const advance = async () => {
+    const next = NEXT_STATUS[String(subscription?.status).toUpperCase()];
+    if (!next || actionBusy) return;
+    setActionBusy(true);
+    try {
+      setSubscription(await updateSubscriptionStatus(id, next));
+      setConfirmTransition(false);
+      toast({ title: 'Status updated', description: `Subscription moved to ${next.toLowerCase()}.`, variant: 'success' });
+    } catch (actionError) {
+      toast({ title: 'Unable to update status', description: actionError.message, variant: 'danger' });
+    } finally {
+      setActionBusy(false);
+    }
+  };
 
-  if (!subscription) {
-    return (
-      <EmptyState title="Subscription not found" description="The subscription you requested does not exist." />
-    );
-  }
+  if (loading) return <div className="flex min-h-64 items-center justify-center"><Spinner /></div>;
+  if (error) return <div className="space-y-4"><p className="rounded border border-red-200 bg-red-50 p-3 text-red-800" role="alert">{error}</p><Button variant="outline" onClick={load}>Retry</Button></div>;
+  if (!subscription) return <EmptyState title="Subscription not found" description="This subscription may have been removed or is unavailable to your account." />;
 
-  const nextAction = NEXT_STATUS_ACTION[subscription.status] ?? null;
-  const canTransition = Boolean(nextAction) && subscription.status !== 'paused';
+  const status = String(subscription.status ?? '').toUpperCase();
+  const nextStatus = NEXT_STATUS[status];
+  const canEdit = ['DRAFT', 'QUOTATION'].includes(status);
+  const invoiceColumns = [
+    { key: 'number', label: 'Invoice' },
+    { key: 'invoice_date', label: 'Date', format: (value) => formatDate(value) },
+    { key: 'due_date', label: 'Due', format: (value) => formatDate(value) },
+    { key: 'total', label: 'Total', format: (value) => formatMoney(value) },
+    { key: 'status', label: 'Status', format: (value) => <Badge variant={String(value).toUpperCase() === 'PAID' ? 'success' : 'default'}>{value}</Badge> },
+    { key: 'open', label: '', render: (invoice) => <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); navigate(`/invoices/${invoice.id}`); }}>View</Button> },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Subscription #{subscription.id}</h1>
-          <p className="text-gray-600">
-            {subscription.customer_name} • {subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} Plan
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant={STATUS_VARIANTS[subscription.status] ?? 'default'}>
-            {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-          </Badge>
-          <Badge variant={PAYMENT_VARIANTS[subscription.payment_status] ?? 'default'}>
-            {subscription.payment_status.charAt(0).toUpperCase() + subscription.payment_status.slice(1)}
-          </Badge>
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div><Link to="/subscriptions" className="text-sm text-indigo-600 hover:underline">Subscriptions</Link><h1 className="mt-2 text-2xl font-bold text-gray-900">{subscription.number ?? `Subscription #${id}`}</h1><p className="text-gray-600">{subscription.customer_name} · {subscription.plan_name}</p></div>
+        <div className="flex flex-wrap gap-2"><Badge variant={status === 'ACTIVE' ? 'success' : status === 'CLOSED' ? 'danger' : 'info'}>{status}</Badge>{canEdit && <Button variant="outline" onClick={() => navigate(`/subscriptions/${id}/edit`)}>Edit</Button>}{nextStatus && <Button disabled={actionBusy} onClick={() => setConfirmTransition(true)}>{`Move to ${nextStatus.toLowerCase()}`}</Button>}</div>
       </div>
-
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Customer</h3>
-            <p className="text-gray-900">{subscription.customer_name}</p>
-            <p className="text-sm text-gray-500 mt-1">{subscription.customer_name}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Plan</h3>
-            <p className="text-gray-900">
-              {subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)}
-            </p>
-            <p className="text-sm text-gray-500 mt-1">Status: {subscription.status}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Amounts</h3>
-            <p className="text-gray-900">{formatMoney(subscription.total)}</p>
-            <p className="text-sm text-gray-500 mt-1">Total including tax</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Start Date</h3>
-            <p className="text-gray-900">{formatDate(subscription.start_date)}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">End Date</h3>
-            <p className="text-gray-900">{formatDate(subscription.end_date)}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Next Billing</h3>
-            <p className="text-gray-900">
-              {subscription.next_billing_date ? formatDate(subscription.next_billing_date) : '—'}
-            </p>
-          </div>
-        </div>
+        <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Customer</dt><dd className="mt-1 text-gray-900">{subscription.customer_name} (#{subscription.customer_id})</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Plan</dt><dd className="mt-1 text-gray-900">{subscription.plan_name}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Payment terms</dt><dd className="mt-1 text-gray-900">{subscription.payment_terms_days} days</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Start date</dt><dd className="mt-1 text-gray-900">{formatDate(subscription.start_date)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Expiry date</dt><dd className="mt-1 text-gray-900">{subscription.expiry_date ? formatDate(subscription.expiry_date) : 'No expiry'}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Next billing</dt><dd className="mt-1 text-gray-900">{subscription.next_billing_date ? formatDate(subscription.next_billing_date) : '—'}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Total</dt><dd className="mt-1 text-gray-900">{formatMoney(subscription.total)}</dd></div>
+          <div><dt className="text-xs font-semibold uppercase text-gray-500">Quotation valid until</dt><dd className="mt-1 text-gray-900">{subscription.quotation_valid_until ? formatDate(subscription.quotation_valid_until) : '—'}</dd></div>
+          {subscription.notes && <div className="sm:col-span-2 lg:col-span-3"><dt className="text-xs font-semibold uppercase text-gray-500">Notes</dt><dd className="mt-1 whitespace-pre-wrap text-gray-900">{subscription.notes}</dd></div>}
+        </dl>
       </Card>
-
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Line Items</h3>
-        <SubscriptionLines lines={subscription.lines} />
-      </Card>
-
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Status</h3>
-        <StatusStepper
-          status={subscription.status}
-          onStatusChange={canTransition ? (nextStatus) => {
-            updateSubscriptionStatus(subscription.id, nextStatus)
-              .then(() => {
-                setSubscription((prev) => ({ ...prev, status: nextStatus }));
-              })
-              .catch((err) => {
-                console.error(err);
-              });
-          } : undefined}
-        />
-        {subscription.status === 'paused' && (
-          <p className="mt-3 text-sm text-gray-500">
-            This subscription is paused. No status transitions are available while paused.
-          </p>
-        )}
-      </Card>
-
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Related Invoices</h3>
-        <div className="text-sm text-gray-500 text-center py-8">
-          No invoices linked to this subscription yet.
-        </div>
-        <div className="mt-4">
-          <Button variant="outline" size="sm">
-            View Invoices
-          </Button>
-        </div>
-      </Card>
+      <Card><h2 className="mb-4 font-semibold text-gray-900">Subscription lines</h2><SubscriptionLines lines={subscription.lines ?? []} /></Card>
+      <Card><div className="mb-4 flex items-center justify-between"><h2 className="font-semibold text-gray-900">Recent invoices</h2><Button size="sm" variant="outline" onClick={() => navigate(`/invoices?subscription_id=${id}`)}>View invoices</Button></div><Table columns={invoiceColumns} data={invoices} rowKey="id" emptyMessage="No invoices are linked to this subscription yet." onRowClick={(invoice) => navigate(`/invoices/${invoice.id}`)} /></Card>
+      <ol aria-label="Subscription status" className="flex flex-wrap gap-2 text-xs">
+        {['DRAFT', 'QUOTATION', 'CONFIRMED', 'ACTIVE', 'CLOSED'].map((step) => <li key={step} className={`rounded-full border px-3 py-1 ${step === status ? 'border-indigo-600 bg-indigo-50 font-semibold text-indigo-700' : 'border-gray-200 text-gray-500'}`}>{step}</li>)}
+      </ol>
+      <ConfirmDialog
+        open={confirmTransition}
+        onConfirm={advance}
+        onCancel={() => setConfirmTransition(false)}
+        title="Update subscription status?"
+        message={`Move this subscription to ${nextStatus?.toLowerCase()}?`}
+        confirmLabel={actionBusy ? 'Updating...' : 'Confirm'}
+      />
     </div>
   );
 }

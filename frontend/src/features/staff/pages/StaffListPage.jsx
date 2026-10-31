@@ -5,16 +5,13 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import SearchInput from '../../../components/ui/SearchInput';
 import Pagination from '../../../components/ui/Pagination';
-import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import usePaginatedList from '../../../hooks/usePaginatedList';
 import { formatDate } from '../../../utils/formatDate';
 import StaffFormModal from '../components/StaffFormModal';
-import { getStaffList, createStaff, updateStaff, deleteStaff } from '../api';
+import { getStaffList, createStaff } from '../api';
 
 export default function StaffListPage() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState(null);
-  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const {
     data,
@@ -23,36 +20,19 @@ export default function StaffListPage() {
     pageSize,
     search,
     loading,
+    error,
     setPage,
     setSearch,
     load,
   } = usePaginatedList(getStaffList);
 
   const handleOpenCreate = () => {
-    setEditingStaff(null);
-    setModalOpen(true);
-  };
-
-  const handleOpenEdit = (staff) => {
-    setEditingStaff(staff);
     setModalOpen(true);
   };
 
   const handleSave = async (formData) => {
-    if (editingStaff) {
-      await updateStaff(editingStaff.id, formData);
-    } else {
-      await createStaff(formData);
-    }
+    await createStaff(formData);
     load();
-  };
-
-  const handleConfirmDelete = async () => {
-    if (deleteTargetId) {
-      await deleteStaff(deleteTargetId);
-      setDeleteTargetId(null);
-      load();
-    }
   };
 
   const columns = [
@@ -89,37 +69,10 @@ export default function StaffListPage() {
       ),
     },
     {
-      key: 'is_active',
-      label: 'Status',
-      render: (row) => (
-        <Badge variant={row.is_active ? 'success' : 'default'}>
-          {row.is_active ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
-    },
-    {
       key: 'created_at',
       label: 'Joined',
       render: (row) => (
         <span className="text-xs text-gray-500">{formatDate(row.created_at)}</span>
-      ),
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (row) => (
-        <div className="flex items-center space-x-2">
-          <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(row)}>
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="danger"
-            onClick={() => setDeleteTargetId(row.id)}
-          >
-            Delete
-          </Button>
-        </div>
       ),
     },
   ];
@@ -128,7 +81,7 @@ export default function StaffListPage() {
     <div>
       <PageHeader
         title="Staff Directory (Admin Only)"
-        description="Manage internal team accounts and role-based permissions."
+        description="View staff accounts and create new team members."
         actions={
           <Button variant="primary" onClick={handleOpenCreate}>
             + Add Staff Member
@@ -137,6 +90,12 @@ export default function StaffListPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+        {error && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{error.message}</span>
+            <Button size="sm" variant="outline" onClick={load}>Retry</Button>
+          </div>
+        )}
         <div className="max-w-md mb-4">
           <SearchInput
             value={search}
@@ -166,17 +125,6 @@ export default function StaffListPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSave}
-        staff={editingStaff}
-      />
-
-      <ConfirmDialog
-        open={Boolean(deleteTargetId)}
-        title="Remove Staff Member"
-        message="Are you sure you want to remove this staff member? They will lose access immediately."
-        confirmLabel="Remove Staff"
-        confirmVariant="danger"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTargetId(null)}
       />
     </div>
   );

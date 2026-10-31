@@ -1,8 +1,8 @@
 export const PASSWORD_RULES = [
   {
     id: 'min_length',
-    label: 'At least 8 characters',
-    test: (password) => (password || '').length >= 8,
+    label: 'At least 9 characters',
+    test: (password) => (password || '').length >= 9,
   },
   {
     id: 'upper_case',
@@ -13,11 +13,6 @@ export const PASSWORD_RULES = [
     id: 'lower_case',
     label: 'One lowercase letter (a-z)',
     test: (password) => /[a-z]/.test(password || ''),
-  },
-  {
-    id: 'digit',
-    label: 'One number (0-9)',
-    test: (password) => /\d/.test(password || ''),
   },
   {
     id: 'special_char',

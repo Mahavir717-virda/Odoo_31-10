@@ -1,13 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { isMockEnabled } from '../../api/mockHelper';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 
 export default function Topbar({ onToggleSidebar }) {
-  const { user, logout, switchMockRole } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const mockActive = isMockEnabled();
 
   const handleLogout = async () => {
     await logout();
@@ -44,41 +42,10 @@ export default function Topbar({ onToggleSidebar }) {
           </svg>
         </button>
 
-        {/* Environment Badge */}
-        {mockActive && (
-          <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            Mock Mode (Seed Data)
-          </span>
-        )}
       </div>
 
       {/* Right User Actions */}
       <div className="flex items-center space-x-3 sm:space-x-4">
-        {/* Quick Mock Role Switcher in Topbar */}
-        {mockActive && (
-          <div className="hidden md:flex items-center space-x-1.5 bg-gray-100 p-1 rounded-lg">
-            <span className="text-xs font-medium text-gray-500 px-1.5">Switch Role:</span>
-            {[
-              { role: 'admin', label: 'Admin' },
-              { role: 'staff', label: 'Staff' },
-              { role: 'customer', label: 'Customer' },
-            ].map(({ role, label }) => (
-              <button
-                key={role}
-                type="button"
-                onClick={() => switchMockRole(role)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  String(user?.role).toLowerCase() === role
-                    ? 'bg-white text-indigo-700 shadow-sm font-semibold'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Current User Pill */}
         {user && (
           <div className="flex items-center space-x-2 pl-2">

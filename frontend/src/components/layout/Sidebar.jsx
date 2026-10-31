@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { isMockEnabled } from '../../api/mockHelper';
 import Badge from '../ui/Badge';
 
 // Built-in navigation configuration mapped by role
@@ -88,7 +87,7 @@ const DEFAULT_NAV_ITEMS = [
   },
   {
     label: 'Quotation Templates',
-    path: '/quotation-templates',
+    path: '/templates',
     roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
     icon: (
       <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,8 +159,7 @@ function getDiscoveredNavItems() {
 }
 
 export default function Sidebar({ isOpen, onClose }) {
-  const { user, hasRole, switchMockRole } = useAuth();
-  const mockActive = isMockEnabled();
+  const { user, hasRole } = useAuth();
 
   const discoveredItems = getDiscoveredNavItems();
   const allNavItems = [...DEFAULT_NAV_ITEMS];
@@ -255,37 +253,6 @@ export default function Sidebar({ isOpen, onClose }) {
           ))}
         </nav>
 
-        {/* Footer: Mock Role Switcher (in mock mode) */}
-        {mockActive && (
-          <div className="p-4 bg-slate-950/80 border-t border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Mock Role Switch</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-300">
-                Active
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1">
-              {[
-                { role: 'admin', label: 'Admin' },
-                { role: 'staff', label: 'Staff' },
-                { role: 'customer', label: 'Portal' },
-              ].map(({ role, label }) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => switchMockRole(role)}
-                  className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
-                    String(user?.role).toLowerCase() === role
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </aside>
     </>
   );

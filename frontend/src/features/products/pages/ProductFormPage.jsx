@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import PageHeader from '../../../components/layout/PageHeader';
 import Input from '../../../components/ui/Input';
@@ -37,12 +37,14 @@ export default function ProductFormPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loadError, setLoadError] = useState('');
+  const [taxLoadError, setTaxLoadError] = useState('');
+  const [formError, setFormError] = useState('');
 
-  // Load taxes for tax dropdown
-  useEffect(() => {
-    getTaxes({ page_size: 50 })
-      .then((res) => {
-        const list = res?.data || res || [];
+  const loadTaxes = useCallback(async () => {
+    try {
+      const response = await getTaxes({ page: 1, limit: 50 });
+        const list = Array.isArray(response?.data) ? response.data : [];
         const options = [
           { value: '', label: 'No Tax / None' },
           ...list.map((t) => ({
@@ -50,31 +52,38 @@ export default function ProductFormPage() {
             label: `${t.name} (${Number(t.rate_percent).toFixed(1)}%)`,
           })),
         ];
-        setTaxOptions(options);
-      })
-      .catch(() => {});
+      setTaxOptions(options);
+      setTaxLoadError('');
+    } catch (error) {
+      setTaxLoadError(error?.message || 'Unable to load tax rates.');
+    }
   }, []);
 
-  // Load product if editing
-  useEffect(() => {
-    if (isEditing) {
-      setLoading(true);
-      getProductById(id)
-        .then((product) => {
-          if (product) {
-            setName(product.name || '');
-            setType(product.type || 'SERVICE');
-            setSalesPrice(product.sales_price !== undefined ? String(product.sales_price) : '');
-            setCostPrice(product.cost_price !== undefined ? String(product.cost_price) : '0');
-            setTaxId(product.tax_id ? String(product.tax_id) : '');
-            setNotes(product.notes || '');
-            setIsActive(product.is_active !== undefined ? Boolean(product.is_active) : true);
-            setVariants(product.variants || []);
-          }
-        })
-        .finally(() => setLoading(false));
+  const loadProduct = useCallback(async () => {
+    if (!isEditing) return;
+    setLoading(true);
+    setLoadError('');
+    try {
+      const product = await getProductById(id);
+      if (product) {
+        setName(product.name || '');
+        setType(product.type || 'SERVICE');
+        setSalesPrice(product.sales_price !== undefined ? String(product.sales_price) : '');
+        setCostPrice(product.cost_price !== undefined ? String(product.cost_price) : '0');
+        setTaxId(product.tax_id ? String(product.tax_id) : '');
+        setNotes(product.notes || '');
+        setIsActive(product.is_active !== undefined ? Boolean(product.is_active) : true);
+        setVariants(product.variants || []);
+      }
+    } catch (error) {
+      setLoadError(error?.message || 'Unable to load product details.');
+    } finally {
+      setLoading(false);
     }
   }, [id, isEditing]);
+
+  useEffect(() => { loadTaxes(); }, [loadTaxes]);
+  useEffect(() => { loadProduct(); }, [loadProduct]);
 
   // Read-only block if non-admin tries to create new product
   if (!isAdmin && !isEditing) {
@@ -135,6 +144,7 @@ export default function ProductFormPage() {
     if (!validate()) return;
 
     setSaving(true);
+    setFormError('');
     const payload = {
       name: name.trim(),
       type,
@@ -153,6 +163,8 @@ export default function ProductFormPage() {
         await createProduct(payload);
       }
       navigate('/products');
+    } catch (error) {
+      setFormError(error?.message || 'Unable to save product.');
     } finally {
       setSaving(false);
     }
@@ -188,7 +200,14 @@ export default function ProductFormPage() {
       />
 
       <Card className="max-w-4xl bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
+        {(loadError || taxLoadError) && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{loadError || taxLoadError}</span>
+            <Button size="sm" variant="outline" onClick={() => { loadTaxes(); loadProduct(); }}>Retry</Button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
+          {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
           <Input
             id="product-form-name"
             label="Product Name"

@@ -25,7 +25,7 @@ export default function InvoiceTotals({ invoice }) {
       </div>
       <div className="p-4 rounded border bg-gray-50">
         <p className="text-xs text-gray-500 uppercase">Paid</p>
-        <p className="text-lg font-semibold">{formatMoney(invoice.paid_amount)}</p>
+        <p className="text-lg font-semibold">{formatMoney(invoice.amount_paid ?? invoice.paid_amount)}</p>
       </div>
       <div className="col-span-1 md:col-span-3 p-4 rounded border bg-indigo-50">
         <p className="text-xs text-indigo-600 uppercase">Balance</p>

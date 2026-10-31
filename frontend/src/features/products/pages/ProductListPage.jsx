@@ -5,6 +5,7 @@ import Table from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import SearchInput from '../../../components/ui/SearchInput';
+import Select from '../../../components/ui/Select';
 import Pagination from '../../../components/ui/Pagination';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import usePaginatedList from '../../../hooks/usePaginatedList';
@@ -16,6 +17,7 @@ export default function ProductListPage() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   const {
     data,
@@ -24,16 +26,31 @@ export default function ProductListPage() {
     pageSize,
     search,
     loading,
+    error,
     setPage,
     setSearch,
+    setFilters,
+    filters,
     load,
   } = usePaginatedList(getProducts);
 
+  const updateFilter = (key, value) => {
+    const next = { ...filters };
+    if (value) next[key] = value;
+    else delete next[key];
+    setFilters(next);
+  };
+
   const handleConfirmDelete = async () => {
     if (deleteTargetId) {
-      await deleteProduct(deleteTargetId);
-      setDeleteTargetId(null);
-      load();
+      try {
+        await deleteProduct(deleteTargetId);
+        setDeleteTargetId(null);
+        setActionError('');
+        load();
+      } catch (deleteError) {
+        setActionError(deleteError?.message || 'Unable to delete product.');
+      }
     }
   };
 
@@ -159,11 +176,38 @@ export default function ProductListPage() {
       />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-        <div className="max-w-md mb-4">
+        {(error || actionError) && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{actionError || error?.message}</span>
+            <Button size="sm" variant="outline" onClick={() => { setActionError(''); load(); }}>Retry</Button>
+          </div>
+        )}
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <SearchInput
             value={search}
             onChange={(val) => setSearch(val)}
             placeholder="Search products by name or type..."
+          />
+          <Select
+            value={filters.type || ''}
+            onChange={(event) => updateFilter('type', event.target.value)}
+            aria-label="Filter products by type"
+            options={[
+              { value: '', label: 'All product types' },
+              { value: 'SERVICE', label: 'Service' },
+              { value: 'GOODS', label: 'Goods' },
+              { value: 'ADDON', label: 'Add-on' },
+            ]}
+          />
+          <Select
+            value={filters.is_active ?? ''}
+            onChange={(event) => updateFilter('is_active', event.target.value)}
+            aria-label="Filter products by status"
+            options={[
+              { value: '', label: 'All statuses' },
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ]}
           />
         </div>
 
