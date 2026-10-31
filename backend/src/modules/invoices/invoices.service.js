@@ -171,6 +171,7 @@ const generateForSubscription = async (subscriptionId, client) => {
  * Generates due invoices for all eligible subscriptions
  */
 const generateDue = async () => {
+  const startTime = Date.now();
   const today = todayDate();
 
   // Select due subscription ids using idx_sub_due with FOR UPDATE SKIP LOCKED
@@ -208,6 +209,9 @@ const generateDue = async () => {
       });
     }
   }
+
+  const durationMs = Date.now() - startTime;
+  console.log(`[generateDue] Processed ${dueIds.length} due subscriptions in ${durationMs}ms (created: ${created}, skipped: ${skipped}, errors: ${errors.length})`);
 
   return { created, skipped, errors };
 };
