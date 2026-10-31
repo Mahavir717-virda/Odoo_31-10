@@ -1,11 +1,11 @@
--- =====================================================================
+--                   ======
 -- Brightloop Subscription Management System: FROZEN SCHEMA (v1)
 -- PostgreSQL 16. Runs automatically on first container start.
 -- Reset everything:  docker compose down -v && docker compose up -d
 -- Rules: money = NUMERIC(12,2), dates = DATE, timestamps = TIMESTAMPTZ.
 -- Statuses are stored as UPPERCASE text guarded by CHECK constraints.
 -- App code (not triggers) sets updated_at and generates document numbers.
--- =====================================================================
+--                   ======
 
 -- ---------- Number sequences (SUB-0001, INV-0001) ----------
 -- App: 'SUB-' || lpad(nextval('subscription_number_seq')::text, 4, '0')

@@ -1,11 +1,12 @@
 import axiosClient from '../../api/axiosClient';
+import { getPayload } from '../../api/featureUtils';
 
 export async function getPlans(params) {
   return axiosClient.get('/plans', { params });
 }
 
 export async function getPlanById(id) {
-  return axiosClient.get(`/plans/${id}`);
+  return getPayload(await axiosClient.get(`/plans/${id}`));
 }
 
 export async function createPlan(data) {

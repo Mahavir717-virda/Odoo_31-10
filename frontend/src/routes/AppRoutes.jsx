@@ -1,5 +1,5 @@
 import { createElement, useEffect } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
 import PageHeader from '../components/layout/PageHeader';
 import ProfileCard from '../features/portal/components/ProfileCard';
@@ -43,26 +43,6 @@ export const APP_ROUTES = [
 const ADMIN_ROLES = ['ADMIN', 'admin'];
 const STAFF_AND_ADMIN_ROLES = ['ADMIN', 'admin', 'STAFF', 'staff'];
 const CUSTOMER_ROLES = ['CUSTOMER', 'customer'];
-
-// Shell Fallback for features in progress
-function ShellFeaturePlaceholder({ title, description }) {
-  return (
-    <div>
-      <PageHeader title={title} description={description} />
-      <div className="bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-12 text-center">
-        <div className="mx-auto w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        </div>
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">
-          {description || 'This module is connected to the frontend shell.'}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function PortalOverview() {
   const { user } = useAuth();
@@ -287,17 +267,10 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Quotation Templates Shell Placeholders */}
+          {/* Quotation Templates: redirect alias to /templates */}
           <Route
             path="/quotation-templates"
-            element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="Quotation Templates"
-                  description="Standardized contract and quote blueprints."
-                />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/templates" replace />}
           />
 
           {/* Dynamically Discovered Feature Routes from features */}

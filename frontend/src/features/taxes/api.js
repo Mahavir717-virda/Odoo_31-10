@@ -1,11 +1,12 @@
 import axiosClient from '../../api/axiosClient';
+import { getPayload } from '../../api/featureUtils';
 
 export async function getTaxes(params) {
   return axiosClient.get('/taxes', { params });
 }
 
 export async function getTaxById(id) {
-  return axiosClient.get(`/taxes/${id}`);
+  return getPayload(await axiosClient.get(`/taxes/${id}`));
 }
 
 export async function createTax(data) {

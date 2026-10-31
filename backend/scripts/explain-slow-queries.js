@@ -1,9 +1,9 @@
 const db = require('../src/config/db');
 
 async function runExplain(title, query, params) {
-  console.log('======================================================================');
+  console.log('                    ');
   console.log(title);
-  console.log('======================================================================');
+  console.log('                    ');
   const explainSql = 'EXPLAIN (ANALYZE, BUFFERS) ' + query;
   const res = await db.query(explainSql, params);
   res.rows.forEach(r => console.log(r['QUERY PLAN']));
