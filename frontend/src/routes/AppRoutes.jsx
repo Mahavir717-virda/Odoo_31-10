@@ -14,6 +14,7 @@ import { Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import RoleRedirect from './RoleRedirect';
 import AppLayout from '../components/layout/AppLayout';
+import PortalLayout from '../components/layout/PortalLayout';
 import PageHeader from '../components/layout/PageHeader';
 import Forbidden from '../pages/Forbidden';
 import NotFound from '../pages/NotFound';
@@ -35,6 +36,11 @@ import PlanFormPage from '../features/plans/pages/PlanFormPage';
 import TaxListPage from '../features/taxes/pages/TaxListPage';
 import DiscountListPage from '../features/discounts/pages/DiscountListPage';
 import DiscountFormPage from '../features/discounts/pages/DiscountFormPage';
+
+// Portal Pages (FE2)
+import MySubscriptionsPage from '../features/portal/pages/MySubscriptionsPage';
+import MyInvoicesPage from '../features/portal/pages/MyInvoicesPage';
+import MyInvoiceDetailPage from '../features/portal/pages/MyInvoiceDetailPage';
 
 const ADMIN_ROLES = ['ADMIN', 'admin'];
 const STAFF_AND_ADMIN_ROLES = ['ADMIN', 'admin', 'STAFF', 'staff'];
@@ -66,17 +72,29 @@ function PortalOverview() {
     <div className="space-y-6">
       <PageHeader
         title="Customer Portal"
-        description="Welcome to your account portal. Review your details and recent activity."
+        description="Welcome to your account portal. Review your subscriptions, invoices, and billing history."
       />
       <ProfileCard user={user} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h4 className="font-semibold text-gray-900 mb-2">My Subscriptions</h4>
-          <p className="text-sm text-gray-500">View and manage your active subscriptions.</p>
+          <p className="text-sm text-gray-500 mb-4">View and manage your active service subscriptions and renewals.</p>
+          <a
+            href="/portal/subscriptions"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Manage Subscriptions &rarr;
+          </a>
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h4 className="font-semibold text-gray-900 mb-2">My Invoices</h4>
-          <p className="text-sm text-gray-500">View billing history and download receipts.</p>
+          <p className="text-sm text-gray-500 mb-4">View billing history, payment statuses, and print receipts.</p>
+          <a
+            href="/portal/invoices"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            View Invoices &rarr;
+          </a>
         </div>
       </div>
     </div>
@@ -90,6 +108,7 @@ function getDiscoveredRoutes() {
     const discovered = [];
     for (const path in modules) {
       if (path.includes('/auth/')) continue;
+      if (path.includes('/portal/')) continue; // Handled explicitly under PortalLayout
 
       const mod = modules[path];
       const list = mod.default || mod.routes || mod.QUOTATION_TEMPLATES_ROUTES || mod.SUBSCRIPTIONS_ROUTES || Object.values(mod).find(Array.isArray);
@@ -110,7 +129,7 @@ function getDiscoveredRoutes() {
 export default function AppRoutes() {
   const discoveredRoutes = getDiscoveredRoutes();
 
-  // Known routes already explicitly declared in fallback map
+  // Known routes already explicitly declared in AppLayout or PortalLayout
   const knownPaths = new Set([
     '/',
     '/dashboard',
@@ -126,6 +145,9 @@ export default function AppRoutes() {
     '/discounts/new',
     '/discounts/:id',
     '/portal',
+    '/portal/subscriptions',
+    '/portal/invoices',
+    '/portal/invoices/:id',
   ]);
 
   return (
@@ -139,7 +161,17 @@ export default function AppRoutes() {
       {/* Global Fallback & Access Control Routes */}
       <Route path="/forbidden" element={<Forbidden />} />
 
-      {/* Authenticated Application Shell */}
+      {/* Customer Portal Layout for CUSTOMER role */}
+      <Route element={<ProtectedRoute allowedRoles={CUSTOMER_ROLES} />}>
+        <Route element={<PortalLayout />}>
+          <Route path="/portal" element={<PortalOverview />} />
+          <Route path="/portal/subscriptions" element={<MySubscriptionsPage />} />
+          <Route path="/portal/invoices" element={<MyInvoicesPage />} />
+          <Route path="/portal/invoices/:id" element={<MyInvoiceDetailPage />} />
+        </Route>
+      </Route>
+
+      {/* Authenticated Staff & Admin Application Shell */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           {/* Default entry route redirects based on role */}
@@ -230,11 +262,11 @@ export default function AppRoutes() {
             }
           />
 
-          {/* Discounts: Admin & Staff */}
+          {/* Discounts: Admin Only */}
           <Route
             path="/discounts"
             element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <DiscountListPage />
               </ProtectedRoute>
             }
@@ -242,7 +274,7 @@ export default function AppRoutes() {
           <Route
             path="/discounts/new"
             element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <DiscountFormPage />
               </ProtectedRoute>
             }
@@ -250,7 +282,7 @@ export default function AppRoutes() {
           <Route
             path="/discounts/:id"
             element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <DiscountFormPage />
               </ProtectedRoute>
             }
@@ -303,38 +335,6 @@ export default function AppRoutes() {
                 <ShellFeaturePlaceholder
                   title="Quotation Templates"
                   description="Standardized contract and quote blueprints."
-                />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Customer Portal Routes */}
-          <Route
-            path="/portal"
-            element={
-              <ProtectedRoute allowedRoles={CUSTOMER_ROLES}>
-                <PortalOverview />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/portal/subscriptions"
-            element={
-              <ProtectedRoute allowedRoles={CUSTOMER_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="My Subscriptions"
-                  description="Review your active service subscriptions and renewals."
-                />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/portal/invoices"
-            element={
-              <ProtectedRoute allowedRoles={CUSTOMER_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="My Invoices"
-                  description="Review invoice history and payment receipts."
                 />
               </ProtectedRoute>
             }
