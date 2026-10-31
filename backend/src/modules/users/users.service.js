@@ -41,6 +41,9 @@ const listUsers = async (query, currentUser) => {
 
   // Enforce STAFF restriction
   if (currentUser.role === 'STAFF') {
+    if (role && role !== 'CUSTOMER') {
+      throw new ApiError(403, 'Forbidden: Staff may only view customers');
+    }
     conditions.push(`role = 'CUSTOMER'`);
   } else if (role) {
     params.push(role);
