@@ -8,7 +8,7 @@ const db = require('../config/db');
  */
 const nextSubscriptionNumber = async (client = null) => {
   const res = await db.query(
-    "SELECT 'SUB-' || lpad(nextval('subscription_number_seq')::text, 4, '0') AS num",
+    "SELECT 'SUB-' || lpad(nextval('subscription_number_seq')::text, GREATEST(4, length(currval('subscription_number_seq')::text)), '0') AS num",
     [],
     client
   );
@@ -23,7 +23,7 @@ const nextSubscriptionNumber = async (client = null) => {
  */
 const nextInvoiceNumber = async (client = null) => {
   const res = await db.query(
-    "SELECT 'INV-' || lpad(nextval('invoice_number_seq')::text, 4, '0') AS num",
+    "SELECT 'INV-' || lpad(nextval('invoice_number_seq')::text, GREATEST(4, length(currval('invoice_number_seq')::text)), '0') AS num",
     [],
     client
   );

@@ -62,5 +62,23 @@ router.patch(
   subscriptionsController.patchStatus
 );
 
-module.exports = router;
+// Customer self-service endpoints (also available to ADMIN, STAFF):
+// PATCH /subscriptions/:id/pause
+router.patch(
+  '/subscriptions/:id/pause',
+  subscriptionsController.pauseSubscription
+);
 
+// PATCH /subscriptions/:id/resume
+router.patch(
+  '/subscriptions/:id/resume',
+  subscriptionsController.resumeSubscription
+);
+
+// PATCH /subscriptions/:id/close
+router.patch(
+  '/subscriptions/:id/close',
+  subscriptionsController.closeSubscription
+);
+
+module.exports = router;

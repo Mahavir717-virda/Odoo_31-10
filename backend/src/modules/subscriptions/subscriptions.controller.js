@@ -32,6 +32,21 @@ const patchStatus = asyncHandler(async (req, res) => {
   return ok(res, subscription, `Subscription status updated to ${req.body.status} successfully`);
 });
 
+const pauseSubscription = asyncHandler(async (req, res) => {
+  const subscription = await subscriptionsService.pauseSubscription(req.params.id, req.user);
+  return ok(res, subscription, 'Subscription paused successfully');
+});
+
+const resumeSubscription = asyncHandler(async (req, res) => {
+  const subscription = await subscriptionsService.resumeSubscription(req.params.id, req.user);
+  return ok(res, subscription, 'Subscription resumed successfully');
+});
+
+const closeSubscription = asyncHandler(async (req, res) => {
+  const subscription = await subscriptionsService.closeSubscription(req.params.id, req.user);
+  return ok(res, subscription, 'Subscription closed successfully');
+});
+
 module.exports = {
   listSubscriptions,
   getSubscriptionById,
@@ -39,5 +54,7 @@ module.exports = {
   updateSubscription,
   createFromTemplate,
   patchStatus,
+  pauseSubscription,
+  resumeSubscription,
+  closeSubscription,
 };
-
