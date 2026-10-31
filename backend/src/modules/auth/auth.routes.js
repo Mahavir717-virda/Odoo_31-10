@@ -28,7 +28,7 @@ const authLimiter = rateLimit({
 router.post('/auth/register', authLimiter, validate(registerSchema, 'body'), authController.register);
 router.post('/auth/login', authLimiter, validate(loginSchema, 'body'), authController.login);
 router.post('/auth/forgot-password', authLimiter, validate(forgotPasswordSchema, 'body'), authController.forgotPassword);
-router.post('/auth/reset-password', validate(resetPasswordSchema, 'body'), authController.resetPassword);
+router.post('/auth/reset-password', authLimiter, validate(resetPasswordSchema, 'body'), authController.resetPassword);
 router.get('/auth/me', auth, authController.getMe);
 
 module.exports = router;
