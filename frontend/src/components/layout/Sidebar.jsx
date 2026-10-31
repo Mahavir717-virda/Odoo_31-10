@@ -176,7 +176,9 @@ export default function Sidebar({ isOpen, onClose }) {
   });
 
   const visibleNav = allNavItems.filter((item) => hasRole(item.roles));
-  const userRoleUpper = String(user?.role || '').toUpperCase();
+  const profileName = user?.name || 'Admin User';
+  const profileEmail = user?.email || 'admin@brightloop.test';
+  const userRoleUpper = String(user?.role || 'ADMIN').toUpperCase();
 
   return (
     <>
@@ -219,14 +221,12 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="px-6 py-4 bg-slate-900/80 border-b border-slate-800">
           <div className="flex items-center justify-between">
             <div className="truncate">
-              <p className="text-sm font-medium text-slate-200 truncate">{user?.name || 'Guest'}</p>
-              <p className="text-xs text-slate-400 truncate">{user?.email || 'Not logged in'}</p>
+              <p className="text-sm font-medium text-slate-200 truncate">{profileName}</p>
+              <p className="text-xs text-slate-400 truncate">{profileEmail}</p>
             </div>
-            {user?.role && (
-              <Badge variant={userRoleUpper === 'ADMIN' ? 'danger' : userRoleUpper === 'STAFF' ? 'primary' : 'success'}>
-                {userRoleUpper}
-              </Badge>
-            )}
+            <Badge variant={userRoleUpper === 'ADMIN' ? 'danger' : userRoleUpper === 'STAFF' ? 'primary' : 'success'}>
+              {userRoleUpper}
+            </Badge>
           </div>
         </div>
 

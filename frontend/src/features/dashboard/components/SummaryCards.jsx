@@ -3,6 +3,9 @@ import { formatMoney } from '../../../utils/formatMoney';
 import Skeleton from './Skeleton';
 
 const cards = [
+  { key: 'total_subscriptions', label: 'Total subscriptions', format: (value) => Number(value ?? 0).toLocaleString() },
+  { key: 'total_invoices', label: 'Total invoices', format: (value) => Number(value ?? 0).toLocaleString() },
+  { key: 'total_payments', label: 'Total payments', format: (value) => Number(value ?? 0).toLocaleString() },
   { key: 'active_subscriptions', label: 'Active subscriptions', format: (value) => Number(value ?? 0).toLocaleString() },
   { key: 'revenue_received', label: 'Revenue received', format: formatMoney },
   { key: 'outstanding', label: 'Outstanding', format: formatMoney },

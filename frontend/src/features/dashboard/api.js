@@ -1,5 +1,8 @@
 import axiosClient from '../../api/axiosClient';
 import { fetchAllPages, getPayload } from '../../api/featureUtils';
+import { fetchInvoices } from '../invoices/api';
+import { fetchPayments } from '../payments/api';
+import { fetchSubscriptions } from '../subscriptions/api';
 
 const loadPayments = (params = {}) =>
   fetchAllPages((pagination) => axiosClient.get('/payments', { params: { ...pagination, ...params } }));
@@ -7,13 +10,13 @@ const loadPayments = (params = {}) =>
 const loadInvoices = (params = {}) =>
   fetchAllPages((pagination) => axiosClient.get('/invoices', { params: { ...pagination, ...params } }));
 
-const loadSubscriptions = (params = {}) =>
-  fetchAllPages((pagination) => axiosClient.get('/subscriptions', { params: { ...pagination, ...params } }));
-
 export async function fetchDashboardSummary(params = {}) {
   const dateParams = { from: params.start_date, to: params.end_date };
-  const [activeSubscriptions, payments, invoices, overdueInvoices] = await Promise.all([
-    loadSubscriptions({ status: 'ACTIVE' }),
+  const [subscriptionCount, invoiceCount, paymentCount, activeSubscriptions, payments, invoices, overdueInvoices] = await Promise.all([
+    fetchSubscriptions({ page: 1, limit: 1 }),
+    fetchInvoices({ page: 1, limit: 1 }),
+    fetchPayments({ page: 1, limit: 1 }),
+    fetchSubscriptions({ page: 1, limit: 1, status: 'ACTIVE' }),
     loadPayments(dateParams),
     loadInvoices(dateParams),
     loadInvoices({ ...dateParams, overdue: true }),
@@ -23,7 +26,10 @@ export async function fetchDashboardSummary(params = {}) {
 
   return getPayload({
     data: {
-      active_subscriptions: activeSubscriptions.length,
+      total_subscriptions: subscriptionCount.total,
+      total_invoices: invoiceCount.total,
+      total_payments: paymentCount.total,
+      active_subscriptions: activeSubscriptions.total,
       revenue_received: payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0),
       outstanding: invoices.reduce(
         (sum, invoice) => sum + (String(invoice.status).toUpperCase() === 'CONFIRMED' ? Math.max(0, total(invoice) - amountPaid(invoice)) : 0),
@@ -36,6 +42,14 @@ export async function fetchDashboardSummary(params = {}) {
       overdue_count: overdueInvoices.length,
     },
   });
+}
+
+export async function fetchDashboardActivity() {
+  const [subscriptions, invoices] = await Promise.all([
+    fetchSubscriptions({ page: 1, limit: 5 }),
+    fetchInvoices({ page: 1, limit: 5 }),
+  ]);
+  return { subscriptions: subscriptions.data, invoices: invoices.data };
 }
 
 export async function fetchRevenueTrend(params = {}) {

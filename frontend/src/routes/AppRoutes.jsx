@@ -4,6 +4,7 @@ import AppLayout from '../components/layout/AppLayout';
 import PageHeader from '../components/layout/PageHeader';
 import ProfileCard from '../features/portal/components/ProfileCard';
 import { DASHBOARD_ROUTES } from '../features/dashboard/routes';
+import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import { INVOICES_ROUTES } from '../features/invoices/routes';
 import { PAYMENTS_ROUTES } from '../features/payments/routes';
 import { PORTAL_ROUTES } from '../features/portal/routes';
@@ -178,15 +179,12 @@ export default function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<RoleRedirect />} />
 
-          {/* Admin & Staff: Dashboard Shell Placeholder */}
+          {/* Admin & Staff: Dashboard */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="Dashboard"
-                  description="Performance metrics, revenue analytics, and overdue subscription tracking."
-                />
+                <DashboardPage />
               </ProtectedRoute>
             }
           />
@@ -285,45 +283,6 @@ export default function AppRoutes() {
             element={
               <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <DiscountFormPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Subscriptions Module Shell Placeholders */}
-          <Route
-            path="/subscriptions"
-            element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="Subscriptions"
-                  description="Recurring subscription lifecycle and status management."
-                />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Invoices Module Shell Placeholders */}
-          <Route
-            path="/invoices"
-            element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="Invoices"
-                  description="Customer invoices and payment status tracking."
-                />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Payments Module Shell Placeholders */}
-          <Route
-            path="/payments"
-            element={
-              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                <ShellFeaturePlaceholder
-                  title="Payments"
-                  description="Transaction ledger and payment reconciliation."
-                />
               </ProtectedRoute>
             }
           />
