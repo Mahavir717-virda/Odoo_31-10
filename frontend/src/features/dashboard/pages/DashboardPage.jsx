@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import Card from '../../../../components/ui/Card';
-import { formatMoney } from '../../../../utils/formatMoney';
+import Card from '../../../components/ui/Card';
+import { formatMoney } from '../../../utils/formatMoney';
 import {
   fetchDashboardSummary,
   fetchOverdueInvoices,
   fetchRevenueTrend,
 } from '../api';
-import DashboardFilters from './components/DashboardFilters';
-import OverdueTable from './components/OverdueTable';
-import RevenueChart from './components/RevenueChart';
-import SummaryCards from './components/SummaryCards';
+import DashboardFilters from '../components/DashboardFilters';
+import OverdueTable from '../components/OverdueTable';
+import RevenueChart from '../components/RevenueChart';
+import SummaryCards from '../components/SummaryCards';
 
 export default function DashboardPage() {
   const [filters, setFilters] = useState({ start_date: '', end_date: '', status: '' });

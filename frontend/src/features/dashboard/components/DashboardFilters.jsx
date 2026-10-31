@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import Input from '../../../../components/ui/Input';
-import Select from '../../../../components/ui/Select';
+import Input from '../../../components/ui/Input';
+import Select from '../../../components/ui/Select';
 
 export default function DashboardFilters({ filters, onChange }) {
   const { start_date = '', end_date = '', status = '' } = filters;

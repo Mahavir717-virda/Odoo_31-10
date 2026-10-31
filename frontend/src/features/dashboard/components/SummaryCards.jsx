@@ -1,6 +1,6 @@
-import Card from '../../../../components/ui/Card';
+import Card from '../../../components/ui/Card';
 import Skeleton from './Skeleton';
-import { formatMoney } from '../../../../utils/formatMoney';
+import { formatMoney } from '../../../utils/formatMoney';
 
 const CARDS = [
   { key: 'active_subscriptions', label: 'Active Subscriptions', format: (value) => value ?? '-', type: 'number' },

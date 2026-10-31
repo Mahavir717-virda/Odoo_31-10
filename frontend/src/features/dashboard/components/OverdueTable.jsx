@@ -1,6 +1,6 @@
-import Table from '../../../../components/ui/Table';
-import { formatMoney } from '../../../../utils/formatMoney';
-import { formatDate } from '../../../../utils/formatDate';
+import Table from '../../../components/ui/Table';
+import { formatMoney } from '../../../utils/formatMoney';
+import { formatDate } from '../../../utils/formatDate';
 
 const COLUMNS = [
   { key: 'customer_name', label: 'Customer' },

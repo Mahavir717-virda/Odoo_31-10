@@ -1,7 +1,7 @@
-import Card from '../../../../components/ui/Card';
-import EmptyState from '../../../../components/ui/EmptyState';
+import Card from '../../../components/ui/Card';
+import EmptyState from '../../../components/ui/EmptyState';
 import Skeleton from './Skeleton';
-import { formatMoney } from '../../../../utils/formatMoney';
+import { formatMoney } from '../../../utils/formatMoney';
 
 export default function RevenueChart({ data, loading, error }) {
   if (loading) {

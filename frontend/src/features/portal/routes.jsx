@@ -5,15 +5,15 @@ import MyInvoiceDetailPage from './pages/MyInvoiceDetailPage';
 export const PORTAL_ROUTES = [
   {
     path: '/portal/subscriptions',
-    element: <MySubscriptionsPage />,
+    element: MySubscriptionsPage,
   },
   {
     path: '/portal/invoices',
-    element: <MyInvoicesPage />,
+    element: MyInvoicesPage,
   },
   {
     path: '/portal/invoices/:id',
-    element: <MyInvoiceDetailPage />,
+    element: MyInvoiceDetailPage,
   },
 ];
 
