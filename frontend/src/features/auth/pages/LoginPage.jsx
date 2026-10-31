@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { isMockEnabled } from '../../../api/mockHelper';
-import { USER_ROLES } from '../../../utils/constants';
 import AuthCard from '../components/AuthCard';
 import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
@@ -13,16 +12,17 @@ export default function LoginPage() {
   const location = useLocation();
   const mockActive = isMockEnabled();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@brightloop.test');
+  const [password, setPassword] = useState('Admin@1234');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const redirectAfterLogin = (user) => {
     const from = location.state?.from?.pathname;
+    const userRole = String(user?.role || '').toUpperCase();
     if (from && !from.startsWith('/login') && !from.startsWith('/forbidden')) {
       navigate(from, { replace: true });
-    } else if (user?.role === USER_ROLES.customer) {
+    } else if (userRole === 'CUSTOMER') {
       navigate('/portal', { replace: true });
     } else {
       navigate('/dashboard', { replace: true });
@@ -37,17 +37,19 @@ export default function LoginPage() {
       const { user } = await login({ email, password });
       redirectAfterLogin(user);
     } catch (err) {
-      setError(err?.message || 'Failed to sign in. Please check your credentials.');
+      setError(err?.message || 'Failed to sign in. Please verify your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickMockLogin = async (role) => {
+  const handleQuickMockLogin = async (mockEmail, mockPassword, role) => {
+    setEmail(mockEmail);
+    setPassword(mockPassword);
     setError('');
     setLoading(true);
     try {
-      const { user } = await login({ email: `${role}@odoo.local`, password: 'Password123!', role });
+      const { user } = await login({ email: mockEmail, password: mockPassword, role });
       redirectAfterLogin(user);
     } catch (err) {
       setError(err?.message || 'Quick login failed.');
@@ -59,7 +61,7 @@ export default function LoginPage() {
   return (
     <AuthCard
       title="Sign in to your account"
-      subtitle="Welcome back! Please enter your details."
+      subtitle="Brightloop Subscription Management System"
       footer={
         <p className="text-xs text-gray-500">
           Don&apos;t have an account?{' '}
@@ -82,7 +84,7 @@ export default function LoginPage() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@company.com"
+          placeholder="admin@brightloop.test"
           required
         />
 
@@ -114,30 +116,33 @@ export default function LoginPage() {
       {mockActive && (
         <div className="mt-6 pt-5 border-t border-gray-100">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 text-center mb-3">
-            Quick Mock Login
+            Quick Mock Accounts (Seed Data)
           </p>
           <div className="grid grid-cols-3 gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleQuickMockLogin(USER_ROLES.admin)}
+              onClick={() => handleQuickMockLogin('admin@brightloop.test', 'Admin@1234', 'ADMIN')}
               disabled={loading}
+              title="admin@brightloop.test (Admin@1234)"
             >
               Admin
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleQuickMockLogin(USER_ROLES.staff)}
+              onClick={() => handleQuickMockLogin('staff@brightloop.test', 'Staff@1234', 'STAFF')}
               disabled={loading}
+              title="staff@brightloop.test (Staff@1234)"
             >
               Staff
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleQuickMockLogin(USER_ROLES.customer)}
+              onClick={() => handleQuickMockLogin('customer1@acme.test', 'Customer@1234', 'CUSTOMER')}
               disabled={loading}
+              title="customer1@acme.test (Customer@1234)"
             >
               Customer
             </Button>
@@ -147,4 +152,3 @@ export default function LoginPage() {
     </AuthCard>
   );
 }
-

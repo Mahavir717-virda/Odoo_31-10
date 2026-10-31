@@ -13,6 +13,8 @@ export default function RegisterPage() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [company, setCompany] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,18 +25,18 @@ export default function RegisterPage() {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
 
     if (!isPasswordValid(password)) {
-      setError('Password does not satisfy security requirements');
+      setError('Password does not satisfy the security requirements.');
       return;
     }
 
     setLoading(true);
     try {
-      await register({ name, email, password });
+      await register({ name, email, company, phone, password });
       navigate('/portal', { replace: true });
     } catch (err) {
       setError(err?.message || 'Failed to create account.');
@@ -45,7 +47,7 @@ export default function RegisterPage() {
 
   return (
     <AuthCard
-      title="Create your account"
+      title="Create your customer account"
       subtitle="Start managing your subscriptions today."
       footer={
         <p className="text-xs text-gray-500">
@@ -65,7 +67,7 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           id="name"
-          label="Full name"
+          label="Full Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Jane Doe"
@@ -74,13 +76,30 @@ export default function RegisterPage() {
 
         <Input
           id="email"
-          label="Email address"
+          label="Email Address"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@company.com"
+          placeholder="jane@company.com"
           required
         />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            id="company"
+            label="Company"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="Acme Corp"
+          />
+          <Input
+            id="phone"
+            label="Phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1-555-0100"
+          />
+        </div>
 
         <div>
           <Input
@@ -97,7 +116,7 @@ export default function RegisterPage() {
 
         <Input
           id="confirmPassword"
-          label="Confirm password"
+          label="Confirm Password"
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
@@ -112,4 +131,3 @@ export default function RegisterPage() {
     </AuthCard>
   );
 }
-

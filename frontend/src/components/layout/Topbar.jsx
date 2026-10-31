@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { isMockEnabled } from '../../api/mockHelper';
-import { USER_ROLES } from '../../utils/constants';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 
@@ -15,13 +14,15 @@ export default function Topbar({ onToggleSidebar }) {
     navigate('/login');
   };
 
-  const getRoleVariant = (role) => {
-    switch (role) {
-      case USER_ROLES.admin:
+  const userRoleUpper = String(user?.role || '').toUpperCase();
+
+  const getRoleVariant = (roleStr) => {
+    switch (String(roleStr).toUpperCase()) {
+      case 'ADMIN':
         return 'danger';
-      case USER_ROLES.staff:
+      case 'STAFF':
         return 'primary';
-      case USER_ROLES.customer:
+      case 'CUSTOMER':
         return 'success';
       default:
         return 'default';
@@ -45,8 +46,8 @@ export default function Topbar({ onToggleSidebar }) {
 
         {/* Environment Badge */}
         {mockActive && (
-          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            Mock Mode
+          <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+            Mock Mode (Seed Data)
           </span>
         )}
       </div>
@@ -56,19 +57,19 @@ export default function Topbar({ onToggleSidebar }) {
         {/* Quick Mock Role Switcher in Topbar */}
         {mockActive && (
           <div className="hidden md:flex items-center space-x-1.5 bg-gray-100 p-1 rounded-lg">
-            <span className="text-xs font-medium text-gray-500 px-1.5">Role:</span>
+            <span className="text-xs font-medium text-gray-500 px-1.5">Switch Role:</span>
             {[
-              { role: USER_ROLES.admin, label: 'Admin' },
-              { role: USER_ROLES.staff, label: 'Staff' },
-              { role: USER_ROLES.customer, label: 'Customer' },
+              { role: 'admin', label: 'Admin' },
+              { role: 'staff', label: 'Staff' },
+              { role: 'customer', label: 'Customer' },
             ].map(({ role, label }) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => switchMockRole(role)}
-                className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                  user?.role === role
-                    ? 'bg-white text-indigo-700 shadow-sm'
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  String(user?.role).toLowerCase() === role
+                    ? 'bg-white text-indigo-700 shadow-sm font-semibold'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                 }`}
               >
@@ -88,7 +89,7 @@ export default function Topbar({ onToggleSidebar }) {
               <p className="text-sm font-medium text-gray-800 leading-none">{user.name}</p>
               <div className="mt-1">
                 <Badge variant={getRoleVariant(user.role)} size="sm">
-                  {user.role}
+                  {userRoleUpper}
                 </Badge>
               </div>
             </div>
@@ -103,4 +104,3 @@ export default function Topbar({ onToggleSidebar }) {
     </header>
   );
 }
-
