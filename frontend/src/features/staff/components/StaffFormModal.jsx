@@ -1,36 +1,50 @@
 import { useState, useEffect } from 'react';
 import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
+import Select from '../../../components/ui/Select';
+import Checkbox from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
-import { isPasswordValid } from '../../../utils/passwordRules';
+import { extractValidationErrors } from '../../../api/errorHelper';
 
-export default function StaffFormModal({ open, onClose, onSubmit }) {
+export default function StaffFormModal({ open, onClose, onSubmit, staff = null }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('STAFF');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState({});
-  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setName('');
-    setEmail('');
-    setPassword('');
-    setPhone('');
-    setCompany('');
+    if (staff) {
+      setName(staff.name || '');
+      setEmail(staff.email || '');
+      setRole(staff.role ? String(staff.role).toUpperCase() : 'STAFF');
+      setPhone(staff.phone || '');
+      setCompany(staff.company || '');
+      setIsActive(staff.is_active !== undefined ? Boolean(staff.is_active) : true);
+    } else {
+      setName('');
+      setEmail('');
+      setRole('STAFF');
+      setPhone('');
+      setCompany('Brightloop Operations');
+      setIsActive(true);
+    }
     setErrors({});
-    setFormError('');
-  }, [open]);
+  }, [staff, open]);
 
   const validate = () => {
     const errs = {};
-    if (!name.trim()) errs.name = 'Full name is required.';
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errs.email = 'A valid email address is required.';
+    if (!name.trim()) {
+      errs.name = 'Full name is required.';
     }
-    if (!isPasswordValid(password)) errs.password = 'Password must be at least 9 characters and include an uppercase letter, lowercase letter, and special character.';
+    if (!email.trim()) {
+      errs.email = 'Email address is required.';
+    } else if (!email.includes('@')) {
+      errs.email = 'Please enter a valid email address.';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -40,18 +54,18 @@ export default function StaffFormModal({ open, onClose, onSubmit }) {
     if (!validate()) return;
 
     setSubmitting(true);
-    setFormError('');
     try {
       await onSubmit({
         name: name.trim(),
         email: email.trim(),
-        password,
+        role,
         phone: phone.trim(),
         company: company.trim(),
+        is_active: isActive,
       });
-      onClose();
-    } catch (error) {
-      setFormError(error?.message || 'Unable to create staff account.');
+    } catch (err) {
+      const { fieldErrors, generalMessage } = extractValidationErrors(err);
+      setErrors({ ...fieldErrors, form: generalMessage });
     } finally {
       setSubmitting(false);
     }
@@ -61,73 +75,95 @@ export default function StaffFormModal({ open, onClose, onSubmit }) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Add New Staff Member"
+      title={staff ? 'Edit Staff Member' : 'Add Staff Member'}
     >
+      {errors.form && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {errors.form}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
         <Input
-          id="staff-modal-name"
+          id="staff-name"
           label="Full Name"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
           }}
-          placeholder="e.g. David Kim"
+          placeholder="e.g. John Smith"
+          required
+          disabled={submitting}
           error={Boolean(errors.name)}
           errorMessage={errors.name}
-          required
         />
 
         <Input
-          id="staff-modal-email"
-          label="Email Address"
+          id="staff-email"
+          label="Email address"
           type="email"
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
             if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
           }}
-          placeholder="david.kim@brightloop.test"
+          placeholder="john.smith@brightloop.test"
+          required
+          disabled={submitting || Boolean(staff)}
           error={Boolean(errors.email)}
           errorMessage={errors.email}
-          required
         />
 
-        <Input
-          id="staff-modal-password"
-          label="Temporary Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={Boolean(errors.password)}
-          errorMessage={errors.password}
-          required
-        />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Select
+            id="staff-role"
+            label="System Role"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            options={[
+              { value: 'STAFF', label: 'Staff Member (Operator)' },
+              { value: 'ADMIN', label: 'Administrator (Full Access)' },
+            ]}
+            disabled={submitting}
+          />
+
           <Input
-            id="staff-modal-phone"
-            label="Phone"
+            id="staff-phone"
+            label="Phone Number"
+            type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+1-555-0150"
+            placeholder="+1 555-0155"
+            disabled={submitting}
           />
         </div>
 
         <Input
-          id="staff-modal-company"
+          id="staff-company"
           label="Department / Unit"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
-          placeholder="e.g. Brightloop Operations"
+          placeholder="Customer Success, Operations, etc."
+          disabled={submitting}
         />
 
-        <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+        <div className="pt-2">
+          <Checkbox
+            id="staff-is-active"
+            label="Account Active (User can authenticate and perform tasks)"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+            disabled={submitting}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" loading={submitting}>
-            Add Staff Member
+            {staff ? 'Save Changes' : 'Create Staff'}
           </Button>
         </div>
       </form>
