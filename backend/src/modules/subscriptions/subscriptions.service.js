@@ -623,6 +623,152 @@ const patchStatus = async (id, targetStatus, user) => {
   });
 };
 
+
+/**
+ * PATCH /subscriptions/:id/pause:
+ * Requires status ACTIVE and plan.pausable, sets is_paused true.
+ * CUSTOMER can only pause their own; 404 otherwise.
+ * Violations return 409 with a clear message.
+ */
+const pauseSubscription = async (id, user) => {
+  return db.withTransaction(async (client) => {
+    const subRes = await client.query(
+      `SELECT s.*, p.pausable
+       FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (subRes.rows.length === 0) {
+      throw new ApiError(404, 'Subscription not found');
+    }
+
+    const sub = subRes.rows[0];
+
+    // Customer scoping: own subscription only, 404 otherwise
+    if (user && user.role === 'CUSTOMER' && Number(sub.customer_id) !== Number(user.id)) {
+      throw new ApiError(404, 'Subscription not found');
+    }
+
+    if (sub.status !== 'ACTIVE') {
+      throw new ApiError(409, `Cannot pause subscription with status ${sub.status}. Status must be ACTIVE.`);
+    }
+
+    if (!sub.pausable) {
+      throw new ApiError(409, 'Plan does not allow pausing');
+    }
+
+    if (sub.is_paused) {
+      throw new ApiError(409, 'Subscription is already paused');
+    }
+
+    await client.query(
+      `UPDATE subscriptions SET is_paused = TRUE, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    return getSubscriptionById(id, user, client);
+  });
+};
+
+/**
+ * PATCH /subscriptions/:id/resume:
+ * Requires status ACTIVE and plan.pausable, sets is_paused false.
+ * CUSTOMER can only resume their own; 404 otherwise.
+ * Violations return 409 with a clear message.
+ */
+const resumeSubscription = async (id, user) => {
+  return db.withTransaction(async (client) => {
+    const subRes = await client.query(
+      `SELECT s.*, p.pausable
+       FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (subRes.rows.length === 0) {
+      throw new ApiError(404, 'Subscription not found');
+    }
+
+    const sub = subRes.rows[0];
+
+    // Customer scoping: own subscription only, 404 otherwise
+    if (user && user.role === 'CUSTOMER' && Number(sub.customer_id) !== Number(user.id)) {
+      throw new ApiError(404, 'Subscription not found');
+    }
+
+    if (sub.status !== 'ACTIVE') {
+      throw new ApiError(409, `Cannot resume subscription with status ${sub.status}. Status must be ACTIVE.`);
+    }
+
+    if (!sub.pausable) {
+      throw new ApiError(409, 'Plan does not allow pausing/resuming');
+    }
+
+    if (!sub.is_paused) {
+      throw new ApiError(409, 'Subscription is not paused');
+    }
+
+    await client.query(
+      `UPDATE subscriptions SET is_paused = FALSE, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    return getSubscriptionById(id, user, client);
+  });
+};
+
+/**
+ * PATCH /subscriptions/:id/close:
+ * Requires status ACTIVE and plan.closable, sets CLOSED and clears next_billing_date.
+ * CUSTOMER can only close their own; 404 otherwise.
+ * Violations return 409 with a clear message.
+ */
+const closeSubscription = async (id, user) => {
+  return db.withTransaction(async (client) => {
+    const subRes = await client.query(
+      `SELECT s.*, p.closable
+       FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (subRes.rows.length === 0) {
+      throw new ApiError(404, 'Subscription not found');
+    }
+
+    const sub = subRes.rows[0];
+
+    // Customer scoping: own subscription only, 404 otherwise
+    if (user && user.role === 'CUSTOMER' && Number(sub.customer_id) !== Number(user.id)) {
+      throw new ApiError(404, 'Subscription not found');
+    }
+
+    if (sub.status !== 'ACTIVE') {
+      throw new ApiError(409, `Cannot close subscription with status ${sub.status}. Status must be ACTIVE.`);
+    }
+
+    if (!sub.closable) {
+      throw new ApiError(409, 'Plan does not allow early closing');
+    }
+
+    await client.query(
+      `UPDATE subscriptions
+       SET status = 'CLOSED', next_billing_date = NULL, is_paused = FALSE, updated_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+
+    return getSubscriptionById(id, user, client);
+  });
+};
+
 module.exports = {
   buildLines,
   listSubscriptions,
@@ -631,5 +777,8 @@ module.exports = {
   updateSubscription,
   createFromTemplate,
   patchStatus,
+  pauseSubscription,
+  resumeSubscription,
+  closeSubscription,
 };
 
