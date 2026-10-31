@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import PageHeader from '../../../components/layout/PageHeader';
-import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
-import Checkbox from '../../../components/ui/Checkbox';
-import Button from '../../../components/ui/Button';
-import Card from '../../../components/ui/Card';
-import Spinner from '../../../components/ui/Spinner';
-import { getDiscountById, createDiscount, updateDiscount, getDiscountProducts } from '../api';
+import { getDiscountById, createDiscount, updateDiscount } from '../api';
 import { getProducts } from '../../products/api';
 import { formatMoney } from '../../../utils/formatMoney';
 
@@ -28,6 +21,7 @@ export default function DiscountFormPage() {
   const { isAdmin } = useAuth();
   const isEditing = Boolean(id && id !== 'new');
   const readOnly = isEditing && !isAdmin;
+
   const [name, setName] = useState('');
   const [type, setType] = useState('PERCENT');
   const [value, setValue] = useState('');
@@ -49,11 +43,13 @@ export default function DiscountFormPage() {
     setLoading(true);
     setErrors({});
     try {
-      const [availableProducts, discount] = await Promise.all([
-        getDiscountProducts(),
+      const [availableProductsRes, discount] = await Promise.all([
+        getProducts({ page_size: 100 }),
         isEditing ? getDiscountById(id) : Promise.resolve(null),
       ]);
-      setProducts(availableProducts);
+      const productList = availableProductsRes?.data || (Array.isArray(availableProductsRes) ? availableProductsRes : []);
+      setProducts(productList);
+
       if (discount) {
         setName(discount.name || '');
         setType(discount.type || 'PERCENT');
@@ -69,9 +65,9 @@ export default function DiscountFormPage() {
         setProductIds(Array.isArray(discount.product_ids) ? discount.product_ids.map(Number) : []);
         setIsActive(Boolean(discount.is_active));
       }
-      } catch (loadError) {
-        setErrors({ form: loadError?.message || 'Unable to load discount data.' });
-      } finally {
+    } catch (loadError) {
+      setErrors({ form: loadError?.message || 'Unable to load discount data.' });
+    } finally {
       setLoading(false);
     }
   }, [id, isEditing]);
@@ -79,28 +75,6 @@ export default function DiscountFormPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Load available products for PRODUCTS scope
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    getProducts({ page_size: 100 })
-      .then((res) => {
-        if (!mounted) return;
-        const list = res?.data || (Array.isArray(res) ? res : []);
-        setProducts(list);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setProducts([]);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const toggleProductId = (productId) => {
     setProductIds((prev) => {
@@ -184,318 +158,490 @@ export default function DiscountFormPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Spinner size="lg" className="text-indigo-600" />
+      <div className="min-h-[360px] flex items-center justify-center p-12 text-gray-500 text-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span>Loading discount details...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <PageHeader
-        title={isEditing ? `Edit Discount: ${name}` : 'Create New Discount'}
-        description="Set up discount amounts, duration, eligibility rules, and redemption limits."
-        breadcrumbs={[
-          { label: 'Discounts', href: '/discounts' },
-          { label: isEditing ? (readOnly ? 'Details' : 'Edit') : 'New' },
-        ]}
-      />
+    <div className="w-full font-sans pb-16 max-w-7xl mx-auto">
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center gap-2 text-[13px] text-gray-400 mb-2">
+        <Link to="/discounts" className="hover:text-blue-600 transition">
+          Discounts
+        </Link>
+        <span>/</span>
+        <span className="text-gray-900 font-semibold">
+          {isEditing ? (name || 'Edit Discount') : 'New Discount'}
+        </span>
+      </div>
 
-      <Card className="max-w-4xl bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-        {errors.form && (
-          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
-            {errors.form}
-          </div>
-        )}
+      {/* Page Title */}
+      <div className="mb-6">
+        <h1 className="text-[28px] sm:text-[32px] font-bold text-gray-950 tracking-tight leading-tight">
+          {isEditing ? `Edit Discount: ${name || 'Discount'}` : 'Create New Discount'}
+        </h1>
+        <p className="text-[14px] text-gray-500 mt-1">
+          Configure discount coupons, percentages, redemption limits, and product eligibility.
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Details Section */}
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-4">
-              General Information
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <Input
-                  id="discount-name"
-                  label="Discount / Coupon Code"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value.toUpperCase());
-                    if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
-                  }}
-                  placeholder="e.g. WELCOME20, ENTERPRISE500"
-                  required
-                  error={Boolean(errors.name)}
-                  errorMessage={errors.name}
-                  disabled={loading || saving}
-                />
+      {/* Errors if any */}
+      {errors.form && (
+        <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800" role="alert">
+          {errors.form}
+        </div>
+      )}
+
+      {/* 2-Column SaaS Grid */}
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Left Column (2 Cols): Main Form Inputs */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6 sm:p-7 space-y-6">
+              {/* General Information */}
+              <div className="space-y-4">
+                <h2 className="text-[15px] font-bold text-gray-900 border-b border-[#EEF2F7] pb-3">
+                  General Information
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="discount-name" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      Discount / Coupon Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="discount-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value.toUpperCase());
+                        if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+                      }}
+                      placeholder="e.g. SUMMER25, ENTERPRISE50"
+                      required
+                      disabled={loading || saving || readOnly}
+                      className={`w-full h-11 px-3.5 bg-white border ${
+                        errors.name ? 'border-red-400' : 'border-[#CBD5E1]'
+                      } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition uppercase font-mono`}
+                    />
+                    {errors.name && <p className="text-[12px] text-red-600 mt-1">{errors.name}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="discount-type" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      Discount Type
+                    </label>
+                    <select
+                      id="discount-type"
+                      value={type}
+                      onChange={(e) => {
+                        setType(e.target.value);
+                        if (errors.value) setErrors((prev) => ({ ...prev, value: null }));
+                      }}
+                      disabled={loading || saving || readOnly}
+                      className="w-full h-11 px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+                    >
+                      <option value="PERCENT">Percentage (%)</option>
+                      <option value="FIXED">Fixed Amount ($)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="discount-value" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      {type === 'PERCENT' ? 'Percentage (Max 100%)' : 'Fixed Discount ($)'} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="discount-value"
+                      type="number"
+                      step={type === 'PERCENT' ? '1' : '0.01'}
+                      min="0.01"
+                      max={type === 'PERCENT' ? '100' : undefined}
+                      value={value}
+                      onChange={(e) => {
+                        setValue(e.target.value);
+                        if (errors.value) setErrors((prev) => ({ ...prev, value: null }));
+                      }}
+                      placeholder={type === 'PERCENT' ? '20' : '50.00'}
+                      required
+                      disabled={loading || saving || readOnly}
+                      className={`w-full h-11 px-3.5 bg-white border ${
+                        errors.value ? 'border-red-400' : 'border-[#CBD5E1]'
+                      } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                    />
+                    {errors.value && <p className="text-[12px] text-red-600 mt-1">{errors.value}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="discount-min-purchase" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      Minimum Purchase ($)
+                    </label>
+                    <input
+                      id="discount-min-purchase"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={minPurchase}
+                      onChange={(e) => {
+                        setMinPurchase(e.target.value);
+                        if (errors.minPurchase) setErrors((prev) => ({ ...prev, minPurchase: null }));
+                      }}
+                      placeholder="0.00"
+                      disabled={loading || saving || readOnly}
+                      className={`w-full h-11 px-3.5 bg-white border ${
+                        errors.minPurchase ? 'border-red-400' : 'border-[#CBD5E1]'
+                      } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                    />
+                    {errors.minPurchase && <p className="text-[12px] text-red-600 mt-1">{errors.minPurchase}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="discount-min-qty" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      Minimum Quantity
+                    </label>
+                    <input
+                      id="discount-min-qty"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={minQuantity}
+                      onChange={(e) => {
+                        setMinQuantity(e.target.value);
+                        if (errors.minQuantity) setErrors((prev) => ({ ...prev, minQuantity: null }));
+                      }}
+                      placeholder="0"
+                      disabled={loading || saving || readOnly}
+                      className={`w-full h-11 px-3.5 bg-white border ${
+                        errors.minQuantity ? 'border-red-400' : 'border-[#CBD5E1]'
+                      } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                    />
+                    {errors.minQuantity && <p className="text-[12px] text-red-600 mt-1">{errors.minQuantity}</p>}
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Select
-                  id="discount-type"
-                  label="Discount Type"
-                  value={type}
-                  onChange={(e) => {
-                    setType(e.target.value);
-                    if (errors.value) setErrors((prev) => ({ ...prev, value: null }));
-                  }}
-                  options={[
-                    { value: 'PERCENT', label: 'Percentage (%)' },
-                    { value: 'FIXED', label: 'Fixed Amount ($)' },
-                  ]}
-                  disabled={loading || saving}
-                />
-              </div>
-            </div>
+              {/* Validity Dates */}
+              <div className="space-y-4 pt-2">
+                <h2 className="text-[15px] font-bold text-gray-900 border-b border-[#EEF2F7] pb-3">
+                  Validity Dates
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="discount-start-date" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      Start Date (Available From) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="discount-start-date"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        if (errors.startDate) setErrors((prev) => ({ ...prev, startDate: null }));
+                      }}
+                      required
+                      disabled={loading || saving || readOnly}
+                      className={`w-full h-11 px-3.5 bg-white border ${
+                        errors.startDate ? 'border-red-400' : 'border-[#CBD5E1]'
+                      } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                    />
+                    {errors.startDate && <p className="text-[12px] text-red-600 mt-1">{errors.startDate}</p>}
+                  </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-              <div>
-                <Input
-                  id="discount-value"
-                  label={type === 'PERCENT' ? 'Percentage (Max 100%)' : 'Amount ($)'}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max={type === 'PERCENT' ? '100' : undefined}
-                  value={value}
-                  onChange={(e) => {
-                    setValue(e.target.value);
-                    if (errors.value) setErrors((prev) => ({ ...prev, value: null }));
-                  }}
-                  placeholder={type === 'PERCENT' ? '20' : '50.00'}
-                  required
-                  error={Boolean(errors.value)}
-                  errorMessage={errors.value}
-                  disabled={loading || saving}
-                />
-              </div>
-
-              <div>
-                <Input
-                  id="discount-min-purchase"
-                  label="Minimum Purchase ($)"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={minPurchase}
-                  onChange={(e) => {
-                    setMinPurchase(e.target.value);
-                    if (errors.minPurchase) setErrors((prev) => ({ ...prev, minPurchase: null }));
-                  }}
-                  placeholder="0.00"
-                  error={Boolean(errors.minPurchase)}
-                  errorMessage={errors.minPurchase}
-                  disabled={loading || saving}
-                />
+                  <div>
+                    <label htmlFor="discount-end-date" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                      End Date (Available Until) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="discount-end-date"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        if (errors.endDate) setErrors((prev) => ({ ...prev, endDate: null }));
+                      }}
+                      required
+                      disabled={loading || saving || readOnly}
+                      className={`w-full h-11 px-3.5 bg-white border ${
+                        errors.endDate ? 'border-red-400' : 'border-[#CBD5E1]'
+                      } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                    />
+                    {errors.endDate && <p className="text-[12px] text-red-600 mt-1">{errors.endDate}</p>}
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Input
-                  id="discount-min-quantity"
-                  label="Minimum Quantity"
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={minQuantity}
-                  onChange={(e) => {
-                    setMinQuantity(e.target.value);
-                    if (errors.minQuantity) setErrors((prev) => ({ ...prev, minQuantity: null }));
-                  }}
-                  placeholder="0"
-                  error={Boolean(errors.minQuantity)}
-                  errorMessage={errors.minQuantity}
-                  disabled={loading || saving}
-                />
-              </div>
-            </div>
-          </div>
+              {/* Redemption Limits */}
+              <div className="space-y-4 pt-2">
+                <h2 className="text-[15px] font-bold text-gray-900 border-b border-[#EEF2F7] pb-3">
+                  Redemption & Limits
+                </h2>
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4.5 space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isUnlimited}
+                      onChange={(e) => {
+                        setIsUnlimited(e.target.checked);
+                        if (errors.usageLimit) setErrors((prev) => ({ ...prev, usageLimit: null }));
+                      }}
+                      disabled={loading || saving || readOnly}
+                      className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="text-[13px] font-medium text-gray-800">
+                      Unlimited Redemptions (No ceiling on total customer uses)
+                    </span>
+                  </label>
 
-          {/* Validity & Usage Limits Section */}
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-4">
-              Validity & Usage Limits
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Input
-                  id="discount-start-date"
-                  label="Start Date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    if (errors.startDate || errors.endDate) {
-                      setErrors((prev) => ({ ...prev, startDate: null, endDate: null }));
-                    }
-                  }}
-                  required
-                  error={Boolean(errors.startDate)}
-                  errorMessage={errors.startDate}
-                  disabled={loading || saving}
-                />
-              </div>
-
-              <div>
-                <Input
-                  id="discount-end-date"
-                  label="End Date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    if (errors.endDate) setErrors((prev) => ({ ...prev, endDate: null }));
-                  }}
-                  required
-                  error={Boolean(errors.endDate)}
-                  errorMessage={errors.endDate}
-                  disabled={loading || saving}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 p-4 rounded-lg bg-gray-50 border border-gray-200">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-800">Redemption Limit</span>
-                <Checkbox
-                  id="unlimited-usage-checkbox"
-                  label="Unlimited Redemptions"
-                  checked={isUnlimited}
-                  onChange={(e) => {
-                    setIsUnlimited(e.target.checked);
-                    if (errors.usageLimit) setErrors((prev) => ({ ...prev, usageLimit: null }));
-                  }}
-                  className="!mb-0"
-                  disabled={loading || saving}
-                />
+                  {!isUnlimited && (
+                    <div className="max-w-xs pt-1">
+                      <label htmlFor="discount-usage-limit" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                        Maximum Allowed Redemptions <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="discount-usage-limit"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={usageLimit}
+                        onChange={(e) => {
+                          setUsageLimit(e.target.value);
+                          if (errors.usageLimit) setErrors((prev) => ({ ...prev, usageLimit: null }));
+                        }}
+                        placeholder="e.g. 100"
+                        required
+                        disabled={loading || saving || readOnly}
+                        className={`w-full h-11 px-3.5 bg-white border ${
+                          errors.usageLimit ? 'border-red-400' : 'border-[#CBD5E1]'
+                        } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                      />
+                      {errors.usageLimit && <p className="text-[12px] text-red-600 mt-1">{errors.usageLimit}</p>}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {!isUnlimited && (
-                <div className="max-w-xs mt-2">
-                  <Input
-                    id="discount-usage-limit"
-                    label="Maximum Redemptions"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={usageLimit}
+              {/* Scope & Applicability */}
+              <div className="space-y-4 pt-2">
+                <h2 className="text-[15px] font-bold text-gray-900 border-b border-[#EEF2F7] pb-3">
+                  Scope & Applicability
+                </h2>
+                <div className="max-w-xs">
+                  <label htmlFor="discount-scope" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    Applicable Level
+                  </label>
+                  <select
+                    id="discount-scope"
+                    value={scope}
                     onChange={(e) => {
-                      setUsageLimit(e.target.value);
-                      if (errors.usageLimit) setErrors((prev) => ({ ...prev, usageLimit: null }));
+                      setScope(e.target.value);
+                      if (errors.productIds) setErrors((prev) => ({ ...prev, productIds: null }));
                     }}
-                    placeholder="e.g. 100"
-                    required
-                    error={Boolean(errors.usageLimit)}
-                    errorMessage={errors.usageLimit}
-                    disabled={loading || saving}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Scope & Product Multi-Select Section */}
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-4">
-              Scope & Applicability
-            </h3>
-            <div className="max-w-xs mb-4">
-              <Select
-                id="discount-scope"
-                label="Applicable Scope"
-                value={scope}
-                onChange={(e) => {
-                  setScope(e.target.value);
-                  if (errors.productIds) setErrors((prev) => ({ ...prev, productIds: null }));
-                }}
-                options={[
-                  { value: 'SUBSCRIPTION', label: 'Subscription Plan Level' },
-                  { value: 'PRODUCTS', label: 'Products Only (Specific Products)' },
-                ]}
-                disabled={loading || saving}
-              />
-            </div>
-
-            {scope === 'PRODUCTS' && (
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="block text-sm font-medium text-gray-800">
-                    Select Eligible Products <span className="text-red-500">*</span>
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {productIds.length} of {products.length} selected
-                  </span>
+                    disabled={loading || saving || readOnly}
+                    className="w-full h-11 px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+                  >
+                    <option value="SUBSCRIPTION">Subscription Plan Level</option>
+                    <option value="PRODUCTS">Specific Products Only</option>
+                  </select>
                 </div>
 
-                {errors.productIds && (
-                  <p className="text-xs text-red-600 mb-3" role="alert">
-                    {errors.productIds}
-                  </p>
-                )}
+                {scope === 'PRODUCTS' && (
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-semibold text-gray-800">
+                        Select Eligible Products <span className="text-red-500">*</span>
+                      </span>
+                      <span className="text-[12px] text-gray-500">
+                        {productIds.length} of {products.length} selected
+                      </span>
+                    </div>
 
-                {products.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic p-3">No products available to select.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 bg-white rounded border border-gray-200">
-                    {products.map((p) => {
-                      const isSelected = productIds.includes(Number(p.id));
-                      return (
-                        <div
-                          key={p.id}
-                          className={`flex items-center gap-3 p-2 rounded-md border text-xs cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'border-indigo-500 bg-indigo-50/50 text-indigo-900 font-medium'
-                              : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                          <input
-                            id={`product-select-${p.id}`}
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleProductId(p.id)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                            disabled={loading || saving}
-                          />
-                          <label htmlFor={`product-select-${p.id}`} className="flex-1 min-w-0 cursor-pointer">
-                            <span className="truncate block font-medium">{p.name}</span>
-                            <span className="text-[11px] text-gray-500">
-                              {p.type} • {formatMoney(p.sales_price || 0)}
-                            </span>
-                          </label>
-                        </div>
-                      );
-                    })}
+                    {errors.productIds && <p className="text-[12px] text-red-600">{errors.productIds}</p>}
+
+                    {products.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic py-2">No products available to select.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 bg-white rounded-xl border border-[#CBD5E1]">
+                        {products.map((p) => {
+                          const isSelected = productIds.includes(Number(p.id));
+                          return (
+                            <div
+                              key={p.id}
+                              className={`flex items-center gap-3 p-2.5 rounded-lg border text-xs cursor-pointer transition ${
+                                isSelected
+                                  ? 'border-blue-500 bg-blue-50/60 text-blue-900 font-medium'
+                                  : 'border-[#E2E8F0] hover:bg-gray-50 text-gray-700'
+                              }`}
+                              onClick={() => toggleProductId(p.id)}
+                            >
+                              <input
+                                id={`disc-prod-${p.id}`}
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleProductId(p.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                disabled={loading || saving || readOnly}
+                              />
+                              <label htmlFor={`disc-prod-${p.id}`} className="flex-1 min-w-0 cursor-pointer">
+                                <span className="truncate block font-semibold text-gray-900">{p.name}</span>
+                                <span className="text-[11px] text-gray-500">
+                                  {p.type} • {formatMoney(p.sales_price || 0)}
+                                </span>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+
+              {/* Active Status Checkbox */}
+              <div className="pt-2">
+                <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    id="discount-is-active"
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    disabled={loading || saving || readOnly}
+                    className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-[13px] text-gray-700">
+                    Active: discount code is valid and available for redemption
+                  </span>
+                </label>
+              </div>
+
+              {/* Bottom Actions for Mobile */}
+              <div className="flex items-center justify-end gap-3 pt-6 border-t border-[#EEF2F7]">
+                <Link
+                  to="/discounts"
+                  className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-[#DCE3EE] text-gray-700 font-semibold text-[14px] hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </Link>
+                {!readOnly && (
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-[14px] transition shadow-sm disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Discount'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Active Status Checkbox */}
-          <div className="pt-4 border-t border-gray-100">
-            <Checkbox
-              id="discount-is-active"
-              label="Active (Discount is available for customers to use during its validity period)"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              disabled={loading || saving}
-            />
-          </div>
+          {/* Right Column (1 Col): Live Coupon Preview & Action Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Live Coupon Preview Card */}
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
+              <h3 className="text-[14px] font-bold text-gray-900 mb-1">Coupon Preview</h3>
+              <p className="text-[12px] text-gray-400 mb-4">Live customer-facing badge</p>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
-            <Link to="/discounts">
-              <Button variant="outline" disabled={saving}>
-                Cancel
-              </Button>
-            </Link>
-            <Button type="submit" variant="primary" loading={saving}>
-              {isEditing ? 'Save Changes' : 'Create Discount'}
-            </Button>
+              {/* Coupon Ticket Visual */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] border border-[#BFDBFE] relative overflow-hidden mb-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800 bg-white/80 px-2.5 py-0.5 rounded-full border border-blue-200">
+                    {scope === 'SUBSCRIPTION' ? 'Subscription Coupon' : 'Product Coupon'}
+                  </span>
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold ${
+                      isActive
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {isActive ? 'ACTIVE' : 'INACTIVE'}
+                  </span>
+                </div>
+
+                <div className="font-mono text-[22px] font-extrabold text-blue-950 tracking-wider mb-1">
+                  {name || 'COUPON_CODE'}
+                </div>
+
+                <div className="text-[26px] font-extrabold text-[#2563EB] mb-2 leading-tight">
+                  {type === 'PERCENT' ? `${value || '0'}% OFF` : `${formatMoney(Number(value) || 0)} OFF`}
+                </div>
+
+                <div className="text-[11px] text-blue-900/80 space-y-0.5 border-t border-blue-200/60 pt-2">
+                  <div>Min purchase: {minPurchase > 0 ? formatMoney(minPurchase) : 'None'}</div>
+                  <div>Valid: {startDate} – {endDate}</div>
+                  <div>Limit: {isUnlimited ? 'Unlimited Uses' : `${usageLimit || '—'} Redemptions`}</div>
+                </div>
+              </div>
+
+              {/* Quick Summary Metrics */}
+              <div className="space-y-2.5 text-[13px] border-b border-[#EEF2F7] pb-4 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Discount Type</span>
+                  <span className="font-semibold text-gray-800">
+                    {type === 'PERCENT' ? 'Percentage' : 'Fixed Reduction'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Scope Level</span>
+                  <span className="font-semibold text-gray-800">
+                    {scope === 'SUBSCRIPTION' ? 'All Plans' : `${productIds.length} Products`}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Redemption Ceiling</span>
+                  <span className="font-semibold text-gray-800">
+                    {isUnlimited ? 'Unlimited' : `${usageLimit || '0'} max`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5">
+                {!readOnly && (
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-[13px] transition shadow-sm disabled:opacity-50 text-center"
+                  >
+                    {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Discount'}
+                  </button>
+                )}
+                <Link
+                  to="/discounts"
+                  className="block w-full py-2 px-4 rounded-xl border border-[#DCE3EE] text-gray-600 hover:bg-gray-50 font-semibold text-[13px] transition text-center"
+                >
+                  Cancel
+                </Link>
+              </div>
+            </div>
+
+            {/* Discount Strategy Tips Card */}
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
+              <h3 className="text-[14px] font-bold text-gray-900 mb-2">Discount Tips</h3>
+              <ul className="space-y-2 text-[12px] text-gray-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Coupon Codes:</strong> Automatically capitalized and formatted for customer redemption.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Subscription Scope:</strong> Applies across entire recurring subscription totals.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Limits:</strong> Protect your revenue by adding a maximum redemption ceiling.</span>
+                </li>
+              </ul>
+            </div>
           </div>
-        </form>
-      </Card>
+        </div>
+      </form>
     </div>
   );
 }

@@ -1,13 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import PageHeader from '../../../components/layout/PageHeader';
-import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
-import Checkbox from '../../../components/ui/Checkbox';
-import Button from '../../../components/ui/Button';
-import Card from '../../../components/ui/Card';
-import Spinner from '../../../components/ui/Spinner';
 import { getPlanById, createPlan, updatePlan } from '../api';
+import { formatMoney } from '../../../utils/formatMoney';
+import { formatDate } from '../../../utils/formatDate';
 
 export default function PlanFormPage() {
   const { id } = useParams();
@@ -16,7 +11,7 @@ export default function PlanFormPage() {
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [billingPeriod, setBillingPeriod] = useState('MONTHLY');
+  const [billingPeriod, setBillingPeriod] = useState('YEARLY');
   const [minQuantity, setMinQuantity] = useState('1');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState('');
@@ -44,7 +39,7 @@ export default function PlanFormPage() {
       }
       setName(plan.name || '');
       setPrice(plan.price !== undefined ? String(plan.price) : '');
-      setBillingPeriod(plan.billing_period || 'MONTHLY');
+      setBillingPeriod(plan.billing_period || 'YEARLY');
       setMinQuantity(plan.min_quantity !== undefined ? String(plan.min_quantity) : '1');
       setStartDate(plan.start_date ? plan.start_date.split('T')[0] : new Date().toISOString().split('T')[0]);
       setEndDate(plan.end_date ? plan.end_date.split('T')[0] : '');
@@ -53,14 +48,16 @@ export default function PlanFormPage() {
       setPausable(Boolean(plan.pausable));
       setRenewable(plan.renewable !== undefined ? Boolean(plan.renewable) : true);
       setStatus(plan.status || 'ACTIVE');
-    } catch (error) {
-      setLoadError(error?.message || 'Unable to load plan details.');
+    } catch (err) {
+      setLoadError(err?.message || 'Unable to load plan details.');
     } finally {
       setLoading(false);
     }
   }, [id, isEditing]);
 
-  useEffect(() => { loadPlan(); }, [loadPlan]);
+  useEffect(() => {
+    loadPlan();
+  }, [loadPlan]);
 
   const validate = () => {
     const errs = {};
@@ -71,7 +68,6 @@ export default function PlanFormPage() {
     if (!startDate) {
       errs.startDate = 'Start date is required.';
     }
-    // Date validation: CHECK (end_date IS NULL OR end_date >= start_date)
     if (endDate && startDate) {
       if (new Date(endDate) < new Date(startDate)) {
         errs.endDate = 'End date must be greater than or equal to start date.';
@@ -113,207 +109,454 @@ export default function PlanFormPage() {
         await createPlan(payload);
       }
       navigate('/plans');
-    } catch (error) {
-      setFormError(error?.message || 'Unable to save plan.');
+    } catch (err) {
+      setFormError(err?.message || 'Unable to save plan.');
     } finally {
       setSaving(false);
     }
   };
 
+  const numPrice = Number(price) || 0;
+  const cycleLabel =
+    billingPeriod === 'YEARLY'
+      ? '/year'
+      : billingPeriod === 'MONTHLY'
+      ? '/month'
+      : billingPeriod === 'WEEKLY'
+      ? '/week'
+      : '/day';
+
   if (loading) {
     return (
-      <div className="min-h-[300px] flex items-center justify-center">
-        <Spinner size="lg" />
+      <div className="min-h-[360px] flex items-center justify-center p-12 text-gray-500 text-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span>Loading plan details...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <PageHeader
-        title={isEditing ? `Edit Plan: ${name || `#${id}`}` : 'Create New Subscription Plan'}
-        description="Configure subscription intervals, prices, minimum orders, and lifecycle flags."
-        breadcrumbs={[
-          { label: 'Plans', href: '/plans' },
-          { label: isEditing ? (name || 'Edit') : 'New' },
-        ]}
-      />
+    <div className="w-full font-sans pb-16 max-w-7xl mx-auto">
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center gap-2 text-[13px] text-gray-400 mb-2">
+        <Link to="/plans" className="hover:text-blue-600 transition">
+          Plans
+        </Link>
+        <span>/</span>
+        <span className="text-gray-900 font-semibold">
+          {isEditing ? (name || 'Edit Plan') : 'New Plan'}
+        </span>
+      </div>
 
-      <Card className="max-w-3xl bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
-        {loadError && (
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
-            <span>{loadError}</span>
-            <Button size="sm" variant="outline" onClick={loadPlan}>Retry</Button>
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
-          <Input
-            id="plan-form-name"
-            label="Plan Name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
-            }}
-            placeholder="e.g. Monthly Standard"
-            error={Boolean(errors.name)}
-            errorMessage={errors.name}
-            required
-            disabled={saving}
-          />
+      {/* Page Head */}
+      <div className="mb-6">
+        <h1 className="text-[28px] sm:text-[32px] font-bold text-gray-950 tracking-tight leading-tight">
+          {isEditing ? `Edit Plan: ${name || 'Yearly Pro'}` : 'Create Subscription Plan'}
+        </h1>
+        <p className="text-[14px] text-gray-500 mt-1">
+          Configure recurring billing intervals, prices, minimum order thresholds, and lifecycle flags.
+        </p>
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              id="plan-form-price"
-              label="Recurring Price ($)"
-              type="number"
-              step="0.01"
-              min="0"
-              value={price}
-              onChange={(e) => {
-                setPrice(e.target.value);
-                if (errors.price) setErrors((prev) => ({ ...prev, price: null }));
-              }}
-              placeholder="999.00"
-              error={Boolean(errors.price)}
-              errorMessage={errors.price}
-              required
-              disabled={saving}
-            />
+      {/* Errors if any */}
+      {(loadError || formError) && (
+        <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800" role="alert">
+          {formError || loadError}
+        </div>
+      )}
 
-            <Select
-              id="plan-form-billing-period"
-              label="Billing Cycle"
-              value={billingPeriod}
-              onChange={(e) => setBillingPeriod(e.target.value)}
-              options={[
-                { value: 'DAILY', label: 'DAILY (Every day)' },
-                { value: 'WEEKLY', label: 'WEEKLY (Every 7 days)' },
-                { value: 'MONTHLY', label: 'MONTHLY (Monthly invoice)' },
-                { value: 'YEARLY', label: 'YEARLY (Annual invoice)' },
-              ]}
-              disabled={saving}
-            />
+      {/* 2-Column SaaS Grid */}
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Left Column (2 Cols): Main Form Inputs */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Plan Configuration Card */}
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6 sm:p-7 space-y-5">
+              <h2 className="text-[15px] font-bold text-gray-900 border-b border-[#EEF2F7] pb-3">
+                Plan Configuration
+              </h2>
 
-            <Input
-              id="plan-form-min-quantity"
-              label="Minimum Quantity"
-              type="number"
-              min="1"
-              value={minQuantity}
-              onChange={(e) => {
-                setMinQuantity(e.target.value);
-                if (errors.minQuantity) setErrors((prev) => ({ ...prev, minQuantity: null }));
-              }}
-              placeholder="1"
-              error={Boolean(errors.minQuantity)}
-              errorMessage={errors.minQuantity}
-              required
-              disabled={saving}
-            />
-          </div>
+              <div>
+                <label htmlFor="plan-name" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                  Plan Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="plan-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+                  }}
+                  placeholder="e.g. Yearly Pro"
+                  required
+                  disabled={saving}
+                  className={`w-full h-11 px-3.5 bg-white border ${
+                    errors.name ? 'border-red-400' : 'border-[#CBD5E1]'
+                  } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                />
+                {errors.name && <p className="text-[12px] text-red-600 mt-1">{errors.name}</p>}
+              </div>
 
-          {/* Date Validation Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              id="plan-form-start-date"
-              label="Start Date (Available From)"
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                if (errors.startDate) setErrors((prev) => ({ ...prev, startDate: null }));
-              }}
-              error={Boolean(errors.startDate)}
-              errorMessage={errors.startDate}
-              required
-              disabled={saving}
-            />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="plan-price" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    Recurring Price ($) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="plan-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={price}
+                    onChange={(e) => {
+                      setPrice(e.target.value);
+                      if (errors.price) setErrors((prev) => ({ ...prev, price: null }));
+                    }}
+                    placeholder="999"
+                    required
+                    disabled={saving}
+                    className={`w-full h-11 px-3.5 bg-white border ${
+                      errors.price ? 'border-red-400' : 'border-[#CBD5E1]'
+                    } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                  />
+                  {errors.price && <p className="text-[12px] text-red-600 mt-1">{errors.price}</p>}
+                </div>
 
-            <Input
-              id="plan-form-end-date"
-              label="End Date (Available Until - Optional)"
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                if (errors.endDate) setErrors((prev) => ({ ...prev, endDate: null }));
-              }}
-              error={Boolean(errors.endDate)}
-              errorMessage={errors.endDate}
-              disabled={saving}
-            />
-          </div>
+                <div>
+                  <label htmlFor="plan-period" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    Billing Cycle
+                  </label>
+                  <select
+                    id="plan-period"
+                    value={billingPeriod}
+                    onChange={(e) => setBillingPeriod(e.target.value)}
+                    disabled={saving}
+                    className="w-full h-11 px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+                  >
+                    <option value="YEARLY">YEARLY (Annual invoice)</option>
+                    <option value="MONTHLY">MONTHLY (Monthly invoice)</option>
+                    <option value="WEEKLY">WEEKLY (Every 7 days)</option>
+                    <option value="DAILY">DAILY (Every day)</option>
+                  </select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select
-              id="plan-form-status"
-              label="Initial Status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              options={[
-                { value: 'ACTIVE', label: 'ACTIVE' },
-                { value: 'PAUSED', label: 'PAUSED' },
-                { value: 'CLOSED', label: 'CLOSED' },
-              ]}
-              disabled={saving}
-            />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="plan-min-qty" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    Minimum Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="plan-min-qty"
+                    type="number"
+                    min="1"
+                    value={minQuantity}
+                    onChange={(e) => {
+                      setMinQuantity(e.target.value);
+                      if (errors.minQuantity) setErrors((prev) => ({ ...prev, minQuantity: null }));
+                    }}
+                    placeholder="1"
+                    required
+                    disabled={saving}
+                    className={`w-full h-11 px-3.5 bg-white border ${
+                      errors.minQuantity ? 'border-red-400' : 'border-[#CBD5E1]'
+                    } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                  />
+                  {errors.minQuantity && <p className="text-[12px] text-red-600 mt-1">{errors.minQuantity}</p>}
+                </div>
 
-            <div className="pt-6">
-              <Checkbox
-                id="plan-form-auto-close"
-                label="Auto-Close: automatically close when end_date arrives"
-                checked={autoClose}
-                onChange={(e) => setAutoClose(e.target.checked)}
-                disabled={saving}
-              />
+                <div>
+                  <label htmlFor="plan-status" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    Initial Status
+                  </label>
+                  <select
+                    id="plan-status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    disabled={saving}
+                    className="w-full h-11 px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="PAUSED">PAUSED</option>
+                    <option value="CLOSED">CLOSED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="plan-start-date" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    Start Date (Available From) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="plan-start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (errors.startDate) setErrors((prev) => ({ ...prev, startDate: null }));
+                    }}
+                    required
+                    disabled={saving}
+                    className={`w-full h-11 px-3.5 bg-white border ${
+                      errors.startDate ? 'border-red-400' : 'border-[#CBD5E1]'
+                    } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                  />
+                  {errors.startDate && <p className="text-[12px] text-red-600 mt-1">{errors.startDate}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="plan-end-date" className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+                    End Date (Available Until - Optional)
+                  </label>
+                  <input
+                    id="plan-end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      if (errors.endDate) setErrors((prev) => ({ ...prev, endDate: null }));
+                    }}
+                    disabled={saving}
+                    className={`w-full h-11 px-3.5 bg-white border ${
+                      errors.endDate ? 'border-red-400' : 'border-[#CBD5E1]'
+                    } rounded-xl text-[14px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition`}
+                  />
+                  {errors.endDate && <p className="text-[12px] text-red-600 mt-1">{errors.endDate}</p>}
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Lifecycle Flags Section */}
-          <div className="pt-4 border-t border-gray-100">
-            <h4 className="text-sm font-semibold text-gray-900 mb-3">
-              Plan Lifecycle Flags & Permissions
-            </h4>
-            <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <Checkbox
-                id="plan-flag-closable"
-                label="Closable: Allows administrators to close the plan early"
-                checked={closable}
-                onChange={(e) => setClosable(e.target.checked)}
-                disabled={saving}
-              />
-              <Checkbox
-                id="plan-flag-pausable"
-                label="Pausable: Allows administrators to temporarily pause recurring billing on this plan"
-                checked={pausable}
-                onChange={(e) => setPausable(e.target.checked)}
-                disabled={saving}
-              />
-              <Checkbox
-                id="plan-flag-renewable"
-                label="Renewable: Allows renewing the term once expired or closed"
-                checked={renewable}
-                onChange={(e) => setRenewable(e.target.checked)}
-                disabled={saving}
-              />
+            {/* Plan Lifecycle Flags & Automation Card */}
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6 sm:p-7 space-y-4">
+              <div>
+                <h2 className="text-[15px] font-bold text-gray-900">Plan Lifecycle Flags & Permissions</h2>
+                <p className="text-[12px] text-gray-400 mt-0.5">
+                  Control how this plan behaves during recurring runs, early closures, and auto-expiration.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border transition ${
+                    closable ? 'bg-blue-50/50 border-blue-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}
+                >
+                  <input
+                    id="plan-closable"
+                    type="checkbox"
+                    checked={closable}
+                    onChange={(e) => setClosable(e.target.checked)}
+                    disabled={saving}
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="plan-closable" className="cursor-pointer">
+                    <span className="block text-[13px] font-semibold text-gray-900">Closable</span>
+                    <span className="block text-[11px] text-gray-500">Allows administrators to close the plan early</span>
+                  </label>
+                </div>
+
+                <div
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border transition ${
+                    pausable ? 'bg-blue-50/50 border-blue-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}
+                >
+                  <input
+                    id="plan-pausable"
+                    type="checkbox"
+                    checked={pausable}
+                    onChange={(e) => setPausable(e.target.checked)}
+                    disabled={saving}
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="plan-pausable" className="cursor-pointer">
+                    <span className="block text-[13px] font-semibold text-gray-900">Pausable</span>
+                    <span className="block text-[11px] text-gray-500">Allows pausing recurring billing on this plan</span>
+                  </label>
+                </div>
+
+                <div
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border transition ${
+                    renewable ? 'bg-blue-50/50 border-blue-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}
+                >
+                  <input
+                    id="plan-renewable"
+                    type="checkbox"
+                    checked={renewable}
+                    onChange={(e) => setRenewable(e.target.checked)}
+                    disabled={saving}
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="plan-renewable" className="cursor-pointer">
+                    <span className="block text-[13px] font-semibold text-gray-900">Renewable</span>
+                    <span className="block text-[11px] text-gray-500">Allows renewing the term once expired or closed</span>
+                  </label>
+                </div>
+
+                <div
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border transition ${
+                    autoClose ? 'bg-blue-50/50 border-blue-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}
+                >
+                  <input
+                    id="plan-autoclose"
+                    type="checkbox"
+                    checked={autoClose}
+                    onChange={(e) => setAutoClose(e.target.checked)}
+                    disabled={saving}
+                    className="mt-0.5 w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="plan-autoclose" className="cursor-pointer">
+                    <span className="block text-[13px] font-semibold text-gray-900">Auto-Close</span>
+                    <span className="block text-[11px] text-gray-500">Automatically close when end date arrives</span>
+                  </label>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
-            <Link to="/plans">
-              <Button variant="outline" disabled={saving}>
+            {/* Bottom Actions for Mobile */}
+            <div className="flex items-center justify-end gap-3 pt-6 border-t border-[#EEF2F7]">
+              <button
+                type="button"
+                onClick={() => navigate('/plans')}
+                disabled={saving}
+                className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl border border-[#DCE3EE] text-gray-700 font-semibold text-[14px] hover:bg-gray-50 transition"
+              >
                 Cancel
-              </Button>
-            </Link>
-            <Button type="submit" variant="primary" loading={saving}>
-              {isEditing ? 'Save Plan' : 'Create Plan'}
-            </Button>
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-[14px] transition shadow-sm disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Plan'}
+              </button>
+            </div>
           </div>
-        </form>
-      </Card>
+
+          {/* Right Column (1 Col): Live Summary & Action Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Live Plan Preview Card */}
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
+              <h3 className="text-[14px] font-bold text-gray-900 mb-1">Plan Preview</h3>
+              <p className="text-[12px] text-gray-400 mb-4">Live recurring price & parameters</p>
+
+              <div className="p-4 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] mb-4">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 block">
+                  Recurring Price
+                </span>
+                <div className="text-[28px] font-bold text-blue-900 mt-0.5 leading-tight">
+                  {formatMoney(numPrice)}{' '}
+                  <span className="text-[14px] font-normal text-blue-600">{cycleLabel}</span>
+                </div>
+                <span className="text-[12px] text-blue-600 mt-1 block">
+                  {name || 'Untitled Plan'}
+                </span>
+              </div>
+
+              <div className="space-y-3 text-[13px] border-b border-[#EEF2F7] pb-4 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Billing Cycle</span>
+                  <span className="font-semibold text-gray-800">{billingPeriod}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Minimum Order</span>
+                  <span className="font-semibold text-gray-800">{minQuantity || 1} units</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Available From</span>
+                  <span className="font-semibold text-gray-800">{formatDate(startDate)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Available Until</span>
+                  <span className="font-semibold text-gray-800">
+                    {endDate ? formatDate(endDate) : 'Open / Ongoing'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Auto-Close</span>
+                  <span className="font-semibold text-gray-800">{autoClose ? 'Enabled' : 'Disabled'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs mb-1">Lifecycle Flags</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {closable && (
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[11px] font-medium">
+                        Closable
+                      </span>
+                    )}
+                    {pausable && (
+                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[11px] font-medium">
+                        Pausable
+                      </span>
+                    )}
+                    {renewable && (
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[11px] font-medium">
+                        Renewable
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-gray-500">Status</span>
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold ${
+                      status === 'ACTIVE'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : status === 'PAUSED'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-[13px] transition shadow-sm disabled:opacity-50 text-center"
+                >
+                  {saving ? 'Saving...' : 'Save Plan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/plans')}
+                  disabled={saving}
+                  className="w-full py-2 px-4 rounded-xl border border-[#DCE3EE] text-gray-600 hover:bg-gray-50 font-semibold text-[13px] transition text-center"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            {/* Plan Best Practices Card */}
+            <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
+              <h3 className="text-[14px] font-bold text-gray-900 mb-2">Plan Guidelines</h3>
+              <ul className="space-y-2.5 text-[12px] text-gray-600 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Billing Frequency:</strong> Determines how often recurring invoices generate for subscribers.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Permissions:</strong> Pausable and Closable flags dictate whether staff can pause or terminate subscriptions mid-term.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Minimum Order:</strong> Prevents subscriptions with fewer than the required number of units.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

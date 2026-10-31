@@ -1,258 +1,269 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import Badge from '../ui/Badge';
 
-// Built-in navigation configuration mapped by role
-const DEFAULT_NAV_ITEMS = [
-  // Admin & Staff Navigation
+// Navigation structure matching the icon set with clean styling
+const NAV_SECTIONS = [
   {
-    label: 'Dashboard',
-    path: '/dashboard',
-    roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
+    title: null, // Top-level item
+    items: [
+      {
+        label: 'Dashboard',
+        path: '/dashboard',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-4v-6a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v6H4a1 1 0 0 1-1-1v-9.5z" />
+          </svg>
+        ),
+      },
+    ],
   },
   {
-    label: 'Subscriptions',
-    path: '/subscriptions',
-    roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-    ),
+    title: 'RESEARCH TOOL',
+    items: [
+      {
+        label: 'Product Analytics',
+        path: '/products',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Subscriptions',
+        path: '/subscriptions',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Plans & Pricing',
+        path: '/plans',
+        roles: ['ADMIN', 'admin'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="6" />
+            <path d="M8.21 13.89L7 21l5-3 5 3-1.21-7.11" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Discounts',
+        path: '/discounts',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+        ),
+      },
+    ],
   },
   {
-    label: 'Invoices',
-    path: '/invoices',
-    roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Payments',
-    path: '/payments',
-    roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Products',
-    path: '/products',
-    roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Plans',
-    path: '/plans',
-    roles: ['ADMIN', 'admin'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Discounts',
-    path: '/discounts',
-    roles: ['ADMIN', 'admin'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Taxes',
-    path: '/taxes',
-    roles: ['ADMIN', 'admin'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Quotation Templates',
-    path: '/templates',
-    roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Staff Management',
-    path: '/staff',
-    roles: ['ADMIN', 'admin'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    ),
-  },
-  // Customer Portal Navigation
-  {
-    label: 'Portal Overview',
-    path: '/portal',
-    roles: ['CUSTOMER', 'customer'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'My Subscriptions',
-    path: '/portal/subscriptions',
-    roles: ['CUSTOMER', 'customer'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-    ),
-  },
-  {
-    label: 'My Invoices',
-    path: '/portal/invoices',
-    roles: ['CUSTOMER', 'customer'],
-    icon: (
-      <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
+    title: 'OTHER TOOLS',
+    items: [
+      {
+        label: 'Invoices',
+        path: '/invoices',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <line x1="10" y1="9" x2="8" y2="9" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Payments',
+        path: '/payments',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22 6 12 13 2 6" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Quotation Templates',
+        path: '/templates',
+        roles: ['ADMIN', 'admin', 'STAFF', 'staff'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Taxes',
+        path: '/taxes',
+        roles: ['ADMIN', 'admin'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="5" x2="5" y2="19" />
+            <circle cx="6.5" cy="6.5" r="2.5" />
+            <circle cx="17.5" cy="17.5" r="2.5" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Staff Management',
+        path: '/staff',
+        roles: ['ADMIN', 'admin'],
+        icon: (
+          <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        ),
+      },
+    ],
   },
 ];
-
-// Dynamically discover additional nav definitions from features/**/nav.js
-function getDiscoveredNavItems() {
-  try {
-    const modules = import.meta.glob('../../features/**/nav.js', { eager: true });
-    const items = [];
-    for (const path in modules) {
-      const mod = modules[path];
-      const exported = mod.default || mod.navItems || mod.nav;
-      if (Array.isArray(exported)) {
-        items.push(...exported);
-      } else if (exported && typeof exported === 'object' && exported.path) {
-        items.push(exported);
-      }
-    }
-    return items;
-  } catch {
-    return [];
-  }
-}
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, hasRole } = useAuth();
 
-  const discoveredItems = getDiscoveredNavItems();
-  const allNavItems = [...DEFAULT_NAV_ITEMS];
-  discoveredItems.forEach((item) => {
-    const existingIndex = allNavItems.findIndex((n) => n.path === item.path);
-    if (existingIndex !== -1) {
-      // Override roles from feature definition if specified
-      if (item.roles) {
-        allNavItems[existingIndex].roles = item.roles;
-      }
-    } else {
-      allNavItems.push(item);
-    }
-  });
-
-  const visibleNav = allNavItems.filter((item) => hasRole(item.roles));
-  const profileName = user?.name || 'Admin User';
-  const profileEmail = user?.email || 'admin@brightloop.test';
-  const userRoleUpper = String(user?.role || 'ADMIN').toUpperCase();
+  const workspaceName = user?.name || 'Admin User';
+  const workspaceSales = user?.role === 'CUSTOMER' ? 'Customer Account' : '2,540 Subscriptions';
+  const initial = workspaceName.charAt(0).toUpperCase() || 'A';
 
   return (
     <>
-      {/* Mobile Backdrop - below 768px (md) */}
+      {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-xs md:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar Container - Hamburger drawer below 768px (md), static sidebar at md+ */}
+      {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 bg-slate-900 text-slate-100 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-[248px] bg-white border-r border-[#E2E8F0] p-[18px_14px] text-gray-700 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Brand Header */}
-        <div className="flex items-center justify-between h-16 px-6 bg-slate-950 border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
-              B
-            </div>
-            <span className="text-lg font-bold tracking-tight text-white">Brightloop Subscriptions</span>
-          </div>
+        {/* Logo */}
+        <div className="flex items-center justify-between pb-4 pt-1 px-1">
+          <Link to="/" className="flex items-center">
+            <img
+              src="/logo.png"
+              alt="Brightloop"
+              className="h-12 w-auto max-w-[200px] object-contain block"
+            />
+          </Link>
           <button
             type="button"
-            className="p-1 rounded-md text-slate-400 hover:text-white md:hidden"
+            className="p-1 rounded-md text-gray-400 hover:text-gray-700 md:hidden"
             onClick={onClose}
             aria-label="Close menu"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Current Active User / Role Badge */}
-        <div className="px-6 py-4 bg-slate-900/80 border-b border-slate-800">
-          <div className="flex items-center justify-between">
-            <div className="truncate">
-              <p className="text-sm font-medium text-slate-200 truncate">{profileName}</p>
-              <p className="text-xs text-slate-400 truncate">{profileEmail}</p>
-            </div>
-            <Badge variant={userRoleUpper === 'ADMIN' ? 'danger' : userRoleUpper === 'STAFF' ? 'primary' : 'success'}>
-              {userRoleUpper}
-            </Badge>
-          </div>
+        {/* Account Card */}
+        <div className="flex items-center gap-2.5 p-2.5 border border-[#E2E8F0] rounded-xl bg-[#F8FAFC]">
+          <span className="w-[34px] h-[34px] rounded-full bg-[#FEF3C7] text-[#B45309] font-bold flex items-center justify-center flex-shrink-0 text-xs">
+            {initial}
+          </span>
+          <span className="truncate">
+            <b className="block text-[13px] font-semibold text-gray-900 truncate leading-tight">
+              {workspaceName}
+            </b>
+            <small className="block text-[12px] text-[#64748B] truncate leading-tight mt-0.5">
+              {workspaceSales}
+            </small>
+          </span>
         </div>
 
-        {/* Navigation Items */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {visibleNav.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => {
-                if (isOpen) onClose();
-              }}
-              className={({ isActive }) =>
-                `flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`
-              }
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+        {/* Navigation */}
+        <nav className="flex-1 mt-2.5 space-y-1 overflow-y-auto">
+          {NAV_SECTIONS.map((section, idx) => {
+            const visibleItems = section.items.filter((item) => hasRole(item.roles));
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={section.title || idx}>
+                {section.title && (
+                  <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-[0.06em] pt-4 px-3 pb-1.5">
+                    {section.title}
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => {
+                        if (isOpen) onClose();
+                      }}
+                      className={({ isActive }) =>
+                        `group flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[13px] transition-all ${
+                          isActive
+                            ? 'bg-[#EFF4FF] text-[#1D4ED8] font-semibold'
+                            : 'text-[#475569] hover:bg-[#F1F5F9] font-normal'
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <div className="relative flex items-center justify-center flex-shrink-0">
+                            <span
+                              className={`flex items-center justify-center w-6 h-6 rounded-md transition-colors ${
+                                isActive ? 'text-[#1D4ED8]' : 'text-[#64748B] group-hover:text-gray-900'
+                              }`}
+                            >
+                              {item.icon}
+                            </span>
+                            {/* Mint dot for active item */}
+                            {isActive && (
+                              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                            )}
+                          </div>
+                          <span className="truncate">{item.label}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
+        {/* Plan Card */}
+        <div className="mt-auto p-3.5 border border-[#DBEAFE] bg-[#EFF6FF] rounded-xl">
+          <div className="flex justify-between text-[13px] font-semibold text-gray-900">
+            <span>Product Analytics</span>
+            <span>4/10</span>
+          </div>
+          <div className="h-1.5 rounded-md bg-[#BFDBFE] mt-2 overflow-hidden">
+            <i className="block w-[40%] h-full rounded-md bg-[#2563EB]" />
+          </div>
+          <a
+            href="#upgrade"
+            onClick={(e) => e.preventDefault()}
+            className="block mt-2.5 text-[13px] font-semibold text-[#1D4ED8] hover:underline"
+          >
+            Upgrade Plan &rarr;
+          </a>
+        </div>
       </aside>
     </>
   );

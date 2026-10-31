@@ -24,25 +24,18 @@ export default function PortalLayout({ children }) {
   const initial = (user?.name || user?.email || 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       {/* Top Customer Portal Navbar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-xs">
+      <header className="bg-white border-b border-[#E2E8F0] sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Brand Logo & Title */}
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                  O
-                </div>
-                <div>
-                  <span className="text-base font-bold text-gray-900 tracking-tight block">
-                    Customer Portal
-                  </span>
-                  <span className="text-[10px] text-gray-500 block uppercase font-medium tracking-wider">
-                    Subscription ERP
-                  </span>
-                </div>
+                <img src="/logo.png" alt="Brightloop" className="h-9 w-auto max-w-[140px] object-contain" />
+                <span className="hidden sm:inline-block text-[11px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                  Customer Portal
+                </span>
               </div>
 
               {/* Navigation Items */}
@@ -53,9 +46,9 @@ export default function PortalLayout({ children }) {
                     to={link.to}
                     end={link.end}
                     className={({ isActive }) =>
-                      `px-3 py-2 rounded-md text-sm transition-colors ${
+                      `px-3 py-2 rounded-xl text-xs transition-colors ${
                         isActive
-                          ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 font-medium'
                       }`
                     }
@@ -69,14 +62,14 @@ export default function PortalLayout({ children }) {
             {/* User Profile & Sign Out */}
             <div className="flex items-center space-x-4">
               <div className="hidden sm:flex items-center space-x-3 pr-2 border-r border-gray-200">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-semibold flex items-center justify-center text-sm">
+                <div className="w-8 h-8 rounded-full bg-[#FEF3C7] text-[#B45309] font-bold flex items-center justify-center text-xs border border-amber-200">
                   {initial}
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-semibold text-gray-900 leading-tight">
+                  <div className="text-xs font-semibold text-gray-900 leading-tight">
                     {user?.name || 'Customer'}
                   </div>
-                  <div className="text-xs text-gray-500 leading-tight">
+                  <div className="text-[11px] text-gray-400 leading-tight">
                     {user?.company || user?.email || 'Acme Corp'}
                   </div>
                 </div>
@@ -86,7 +79,7 @@ export default function PortalLayout({ children }) {
                 variant="outline"
                 size="sm"
                 onClick={handleLogout}
-                className="text-gray-700 hover:text-red-600 hover:border-red-200"
+                className="text-gray-700 hover:text-red-600 hover:border-red-200 text-xs rounded-xl"
               >
                 Sign Out
               </Button>
@@ -103,7 +96,7 @@ export default function PortalLayout({ children }) {
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md text-xs font-medium ${
                     isActive
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      ? 'bg-blue-50 text-blue-700 font-semibold'
                       : 'text-gray-600 hover:text-gray-900'
                   }`
                 }
@@ -121,12 +114,11 @@ export default function PortalLayout({ children }) {
       </main>
 
       {/* Portal Footer */}
-      <footer className="bg-white border-t border-gray-200 py-6 text-center text-xs text-gray-500">
+      <footer className="bg-white border-t border-[#E2E8F0] py-6 text-center text-xs text-gray-500">
         <div className="max-w-7xl mx-auto px-4">
-          <p>© 2026 Odoo Subscription ERP. Customer Self-Service Portal.</p>
+          <p>© 2026 Brightloop Subscription ERP. Customer Self-Service Portal.</p>
         </div>
       </footer>
     </div>
   );
 }
-

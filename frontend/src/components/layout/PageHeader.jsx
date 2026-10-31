@@ -9,20 +9,20 @@ export default function PageHeader({
 }) {
   return (
     <div className="mb-6">
-      {/* Optional Breadcrumb navigation */}
+      {/* Breadcrumb Navigation */}
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav className="flex items-center space-x-2 text-xs text-gray-500 mb-2" aria-label="Breadcrumb">
+        <nav className="flex items-center gap-2 text-[13px] text-gray-400 mb-2" aria-label="Breadcrumb">
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
             return (
-              <div key={crumb.label || idx} className="flex items-center space-x-2">
-                {idx > 0 && <span>/</span>}
+              <div key={crumb.label || idx} className="flex items-center gap-2">
+                {idx > 0 && <span className="text-gray-300">/</span>}
                 {crumb.href && !isLast ? (
-                  <Link to={crumb.href} className="hover:text-indigo-600 transition-colors">
+                  <Link to={crumb.href} className="hover:text-blue-600 transition">
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className={isLast ? 'text-gray-900 font-medium' : ''}>{crumb.label}</span>
+                  <span className={isLast ? 'text-gray-900 font-semibold' : ''}>{crumb.label}</span>
                 )}
               </div>
             );
@@ -33,10 +33,12 @@ export default function PageHeader({
       {/* Title & Actions Row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{title}</h1>
-          {description && <p className="mt-1 text-sm text-gray-600">{description}</p>}
+          <h1 className="text-[28px] sm:text-[32px] font-bold text-gray-950 tracking-tight leading-tight">
+            {title}
+          </h1>
+          {description && <p className="text-[14px] text-gray-500 mt-1">{description}</p>}
         </div>
-        {actions && <div className="flex items-center space-x-3">{actions}</div>}
+        {actions && <div className="flex items-center gap-2.5">{actions}</div>}
       </div>
 
       {/* Extra Header Content */}
@@ -44,4 +46,3 @@ export default function PageHeader({
     </div>
   );
 }
-
