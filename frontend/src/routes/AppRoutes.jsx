@@ -1,8 +1,7 @@
 import { createElement, useEffect } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
-import PageHeader from '../components/layout/PageHeader';
-import ProfileCard from '../features/portal/components/ProfileCard';
+import PortalLayout from '../components/layout/PortalLayout';
 import { DASHBOARD_ROUTES } from '../features/dashboard/routes';
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import { INVOICES_ROUTES } from '../features/invoices/routes';
@@ -10,7 +9,6 @@ import { PAYMENTS_ROUTES } from '../features/payments/routes';
 import { PORTAL_ROUTES } from '../features/portal/routes';
 import { QUOTATION_TEMPLATES_ROUTES } from '../features/quotation-templates/routes';
 import { SUBSCRIPTIONS_ROUTES } from '../features/subscriptions/routes';
-import { useAuth } from '../context/AuthContext';
 import DiscountFormPage from '../features/discounts/pages/DiscountFormPage';
 import DiscountListPage from '../features/discounts/pages/DiscountListPage';
 import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
@@ -23,6 +21,7 @@ import ProductFormPage from '../features/products/pages/ProductFormPage';
 import ProductListPage from '../features/products/pages/ProductListPage';
 import StaffListPage from '../features/staff/pages/StaffListPage';
 import TaxListPage from '../features/taxes/pages/TaxListPage';
+import PortalOverviewPage from '../features/portal/pages/PortalOverviewPage';
 import MySubscriptionsPage from '../features/portal/pages/MySubscriptionsPage';
 import MyInvoicesPage from '../features/portal/pages/MyInvoicesPage';
 import MyInvoiceDetailPage from '../features/portal/pages/MyInvoiceDetailPage';
@@ -43,41 +42,6 @@ export const APP_ROUTES = [
 const ADMIN_ROLES = ['ADMIN', 'admin'];
 const STAFF_AND_ADMIN_ROLES = ['ADMIN', 'admin', 'STAFF', 'staff'];
 const CUSTOMER_ROLES = ['CUSTOMER', 'customer'];
-
-function PortalOverview() {
-  const { user } = useAuth();
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Customer Portal"
-        description="Welcome to your account portal. Review your subscriptions, invoices, and billing history."
-      />
-      <ProfileCard user={user} />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h4 className="font-semibold text-gray-900 mb-2">My Subscriptions</h4>
-          <p className="text-sm text-gray-500 mb-4">View and manage your active service subscriptions and renewals.</p>
-          <a
-            href="/portal/subscriptions"
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-          >
-            Manage Subscriptions &rarr;
-          </a>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h4 className="font-semibold text-gray-900 mb-2">My Invoices</h4>
-          <p className="text-sm text-gray-500 mb-4">View billing history, payment statuses, and print receipts.</p>
-          <a
-            href="/portal/invoices"
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-          >
-            View Invoices &rarr;
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Dynamic Feature Route Discovery via Vite's import.meta.glob
 function getDiscoveredRoutes() {
@@ -148,10 +112,12 @@ export default function AppRoutes() {
 
       {/* Customer Portal Layout for CUSTOMER role */}
       <Route element={<ProtectedRoute allowedRoles={CUSTOMER_ROLES} />}>
-        <Route path="/portal" element={<PortalOverview />} />
-        <Route path="/portal/subscriptions" element={<MySubscriptionsPage />} />
-        <Route path="/portal/invoices" element={<MyInvoicesPage />} />
-        <Route path="/portal/invoices/:id" element={<MyInvoiceDetailPage />} />
+        <Route element={<PortalLayout />}>
+          <Route path="/portal" element={<PortalOverviewPage />} />
+          <Route path="/portal/subscriptions" element={<MySubscriptionsPage />} />
+          <Route path="/portal/invoices" element={<MyInvoicesPage />} />
+          <Route path="/portal/invoices/:id" element={<MyInvoiceDetailPage />} />
+        </Route>
       </Route>
 
       {/* Authenticated Staff & Admin Application Shell */}

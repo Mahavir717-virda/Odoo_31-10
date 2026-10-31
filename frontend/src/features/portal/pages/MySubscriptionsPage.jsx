@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../../context/AuthContext';
 import { formatDate } from '../../../utils/formatDate';
 import { formatMoney } from '../../../utils/formatMoney';
 import { getMySubscription, fetchMySubscriptions } from '../api';
-import ProfileCard from '../components/ProfileCard';
 
 export default function MySubscriptionsPage() {
-  const { user } = useAuth();
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,24 +29,30 @@ export default function MySubscriptionsPage() {
 
   return (
     <div className="w-full font-sans pb-12">
-      {/* Top Header matching SaaS layout */}
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center gap-2 text-[13px] text-gray-400 mb-2">
+        <Link to="/portal" className="hover:text-blue-600 transition flex items-center gap-1">
+          <span>&larr;</span>
+          <span>Overview</span>
+        </Link>
+        <span>/</span>
+        <span className="text-gray-900 font-semibold">My Subscriptions</span>
+      </div>
+
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-[28px] sm:text-[30px] font-bold text-gray-950 tracking-tight leading-tight">
             My Subscriptions
           </h1>
           <p className="text-[14px] text-gray-500 mt-1">
-            Review your active recurring plans, billing cycles, and contracted services.
+            Review your active recurring plans, billing frequencies, and contracted service line items.
           </p>
         </div>
       </div>
 
-      <div className="mb-6 max-w-4xl">
-        <ProfileCard user={user} />
-      </div>
-
       {error && (
-        <div className="mb-4 max-w-4xl p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800 flex items-center justify-between" role="alert">
+        <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800 flex items-center justify-between shadow-xs" role="alert">
           <span>{error}</span>
           <button type="button" className="font-semibold underline ml-3" onClick={load}>
             Retry
@@ -58,15 +61,22 @@ export default function MySubscriptionsPage() {
       )}
 
       {loading ? (
-        <div className="min-h-[300px] flex items-center justify-center p-12 text-gray-500 text-sm">
+        <div className="min-h-[300px] bg-white border border-[#E2E8F0] rounded-2xl shadow-sm flex items-center justify-center p-12 text-gray-500 text-sm">
           Loading your subscriptions...
         </div>
       ) : subscriptions.length === 0 ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-12 text-center max-w-4xl">
-          <p className="text-gray-400 text-sm">No subscriptions currently linked to your account.</p>
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-12 text-center">
+          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-500 mx-auto flex items-center justify-center mb-3">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-gray-800">No subscriptions currently linked to your account</p>
+          <p className="text-xs text-gray-400 mt-1">Please reach out to support if you recently ordered a recurring service.</p>
         </div>
       ) : (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6">
           {subscriptions.map((subscription) => {
             const status = String(subscription.status).toUpperCase();
             return (
@@ -77,7 +87,7 @@ export default function MySubscriptionsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#EEF2F7] pb-4 mb-4">
                   <div>
                     <h2 className="text-[18px] font-bold text-gray-950">{subscription.number}</h2>
-                    <p className="text-[13px] text-blue-600 font-medium">{subscription.plan_name}</p>
+                    <p className="text-[13px] text-blue-600 font-semibold">{subscription.plan_name}</p>
                   </div>
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold border ${
@@ -109,7 +119,7 @@ export default function MySubscriptionsPage() {
                   </div>
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total Recurring</dt>
-                    <dd className="mt-0.5 font-bold text-gray-950 text-[15px]">{formatMoney(subscription.total)}</dd>
+                    <dd className="mt-0.5 font-bold text-gray-950 text-[16px]">{formatMoney(subscription.total)}</dd>
                   </div>
                 </dl>
 
@@ -147,9 +157,9 @@ export default function MySubscriptionsPage() {
                 <div className="flex items-center justify-between pt-2">
                   <Link
                     to="/portal/invoices"
-                    className="text-[13px] font-semibold text-blue-600 hover:text-blue-800"
+                    className="text-[13px] font-semibold text-blue-600 hover:text-blue-800 transition"
                   >
-                    View Related Invoices →
+                    View Related Invoices &rarr;
                   </Link>
                 </div>
               </div>

@@ -1,8 +1,19 @@
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
-// Load environment variables from .env
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// Load environment variables from .env across candidate locations
+const candidatePaths = [
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), 'backend/.env'),
+];
+
+for (const envPath of candidatePaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+}
 
 const requiredVars = ['DATABASE_URL', 'JWT_SECRET'];
 const missingVars = requiredVars.filter((varName) => !process.env[varName]);
@@ -30,4 +41,3 @@ const env = {
 };
 
 module.exports = env;
-

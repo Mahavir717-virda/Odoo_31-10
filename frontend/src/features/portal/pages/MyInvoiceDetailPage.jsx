@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useAuth } from '../../../context/AuthContext';
 import { formatDate } from '../../../utils/formatDate';
 import { formatMoney } from '../../../utils/formatMoney';
 import { getMyInvoice } from '../api';
-import ProfileCard from '../components/ProfileCard';
 
 export default function MyInvoiceDetailPage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,7 +36,7 @@ export default function MyInvoiceDetailPage() {
 
   if (error) {
     return (
-      <div className="w-full font-sans pb-12 max-w-4xl">
+      <div className="w-full font-sans pb-12">
         <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-800 mb-4" role="alert">
           {error}
         </div>
@@ -55,7 +52,7 @@ export default function MyInvoiceDetailPage() {
 
   if (!invoice) {
     return (
-      <div className="w-full font-sans pb-12 max-w-4xl text-center py-16">
+      <div className="w-full font-sans pb-12 text-center py-16">
         <h2 className="text-xl font-bold text-gray-900 mb-2">Invoice Not Found</h2>
         <Link to="/portal/invoices" className="text-blue-600 hover:underline text-sm font-semibold">
           Return to My Invoices
@@ -69,13 +66,18 @@ export default function MyInvoiceDetailPage() {
 
   return (
     <div className="w-full font-sans pb-12 print:pb-0">
-      {/* Breadcrumb Navigation matching screenshot */}
+      {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-[13px] text-gray-400 mb-2 print:hidden">
+        <Link to="/portal" className="hover:text-blue-600 transition flex items-center gap-1">
+          <span>&larr;</span>
+          <span>Overview</span>
+        </Link>
+        <span>/</span>
         <Link to="/portal/invoices" className="hover:text-blue-600 transition">
           My Invoices
         </Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium">
+        <span className="text-gray-900 font-semibold">
           {invoice.number}
         </span>
       </div>
@@ -98,13 +100,13 @@ export default function MyInvoiceDetailPage() {
             </span>
           </div>
           <p className="text-[14px] text-gray-500 mt-1">
-            Subscription: {invoice.subscription_number || 'Standard Service'}
+            Subscription: {invoice.subscription_number || 'Standard Recurring Service'}
           </p>
         </div>
 
         <button
           onClick={() => window.print()}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#DCE3EE] text-gray-700 font-semibold text-[13px] hover:bg-gray-50 transition print:hidden"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#DCE3EE] text-gray-700 font-semibold text-[13px] hover:bg-gray-50 transition print:hidden shadow-xs"
         >
           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -113,13 +115,9 @@ export default function MyInvoiceDetailPage() {
         </button>
       </div>
 
-      <div className="mb-6 max-w-4xl print:hidden">
-        <ProfileCard user={user} />
-      </div>
-
       {/* Balance Banner */}
       <div
-        className={`max-w-4xl rounded-2xl p-5 mb-6 border ${
+        className={`rounded-2xl p-5 mb-6 border ${
           isPaid
             ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
             : 'bg-amber-50/70 border-amber-200 text-amber-950'
@@ -142,7 +140,7 @@ export default function MyInvoiceDetailPage() {
       </div>
 
       {/* Overview Card */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6 sm:p-7 mb-6 max-w-4xl">
+      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6 sm:p-7 mb-6">
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Invoice Date</dt>
@@ -154,17 +152,17 @@ export default function MyInvoiceDetailPage() {
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Customer</dt>
-            <dd className="mt-1 font-semibold text-gray-900">{invoice.customer_name || user?.name}</dd>
+            <dd className="mt-1 font-semibold text-gray-900">{invoice.customer_name}</dd>
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</dt>
-            <dd className="mt-1 text-gray-600">{invoice.customer_email || user?.email}</dd>
+            <dd className="mt-1 text-gray-600">{invoice.customer_email}</dd>
           </div>
         </dl>
       </div>
 
       {/* Line Items Table */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm overflow-hidden mb-6 max-w-4xl">
+      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm overflow-hidden mb-6">
         <div className="p-4 border-b border-[#E2E8F0]">
           <h2 className="text-[14px] font-semibold text-gray-900">Line Items</h2>
         </div>
@@ -201,7 +199,7 @@ export default function MyInvoiceDetailPage() {
       </div>
 
       {/* Totals Summary Card */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6 max-w-4xl">
+      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
         <div className="max-w-xs ml-auto space-y-2 text-[13px]">
           <div className="flex justify-between text-gray-600">
             <span>Subtotal</span>
