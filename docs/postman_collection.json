@@ -1259,6 +1259,153 @@
           }
         }
       ]
+    },
+    {
+      "name": "Discounts",
+      "item": [
+        {
+          "name": "List Discounts (ADMIN/STAFF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/discounts?page=1&limit=10&scope=SUBSCRIPTION&state=active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "discounts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "scope",
+                  "value": "SUBSCRIPTION"
+                },
+                {
+                  "key": "state",
+                  "value": "active"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Discount by ID (ADMIN/STAFF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/discounts/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "discounts",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Discount (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Summer Promo 2026\",\n  \"type\": \"PERCENT\",\n  \"value\": 15,\n  \"min_purchase\": 100,\n  \"min_quantity\": 1,\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-08-31\",\n  \"usage_limit\": 50,\n  \"scope\": \"PRODUCTS\",\n  \"product_ids\": [\n    1,\n    2\n  ],\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/discounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "discounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Discount (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 20,\n  \"usage_limit\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/discounts/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "discounts",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Discount (ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/discounts/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "discounts",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }
