@@ -1,11 +1,12 @@
 import axiosClient from '../../api/axiosClient';
+import { getPayload } from '../../api/featureUtils';
 
 export async function getProducts(params) {
   return axiosClient.get('/products', { params });
 }
 
 export async function getProductById(id) {
-  return axiosClient.get(`/products/${id}`);
+  return getPayload(await axiosClient.get(`/products/${id}`));
 }
 
 export async function createProduct(data) {
