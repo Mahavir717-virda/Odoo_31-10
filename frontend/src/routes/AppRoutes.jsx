@@ -6,7 +6,6 @@ import PageHeader from '../components/layout/PageHeader';
 import Forbidden from '../pages/Forbidden';
 import NotFound from '../pages/NotFound';
 import { useAuth } from '../context/AuthContext';
-import { USER_ROLES } from '../utils/constants';
 import ProfileCard from '../features/portal/components/ProfileCard';
 
 // Public Auth Pages
@@ -24,6 +23,10 @@ import PlanFormPage from '../features/plans/pages/PlanFormPage';
 import TaxListPage from '../features/taxes/pages/TaxListPage';
 import DiscountListPage from '../features/discounts/pages/DiscountListPage';
 import DiscountFormPage from '../features/discounts/pages/DiscountFormPage';
+
+const ADMIN_ROLES = ['ADMIN', 'admin'];
+const STAFF_AND_ADMIN_ROLES = ['ADMIN', 'admin', 'STAFF', 'staff'];
+const CUSTOMER_ROLES = ['CUSTOMER', 'customer'];
 
 // Shell Fallback for features in progress
 function ShellFeaturePlaceholder({ title, description }) {
@@ -74,7 +77,6 @@ function getDiscoveredRoutes() {
     const modules = import.meta.glob('../features/**/routes.jsx', { eager: true });
     const discovered = [];
     for (const path in modules) {
-      // Exclude auth routes which are handled separately outside AppLayout
       if (path.includes('/auth/')) continue;
 
       const mod = modules[path];
@@ -99,6 +101,7 @@ export default function AppRoutes() {
   // Known routes already explicitly declared in fallback map
   const knownPaths = new Set([
     '/',
+    '/dashboard',
     '/staff',
     '/products',
     '/products/new',
@@ -134,7 +137,7 @@ export default function AppRoutes() {
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ShellFeaturePlaceholder
                   title="Dashboard"
                   description="Performance metrics, revenue analytics, and overdue subscription tracking."
@@ -147,17 +150,17 @@ export default function AppRoutes() {
           <Route
             path="/staff"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin]}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <StaffListPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Products */}
+          {/* Products: Staff can view; only Admin can create */}
           <Route
             path="/products"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ProductListPage />
               </ProtectedRoute>
             }
@@ -165,7 +168,7 @@ export default function AppRoutes() {
           <Route
             path="/products/new"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <ProductFormPage />
               </ProtectedRoute>
             }
@@ -173,17 +176,17 @@ export default function AppRoutes() {
           <Route
             path="/products/:id"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ProductFormPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Plans */}
+          {/* Plans: Admin Only */}
           <Route
             path="/plans"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <PlanListPage />
               </ProtectedRoute>
             }
@@ -191,7 +194,7 @@ export default function AppRoutes() {
           <Route
             path="/plans/new"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <PlanFormPage />
               </ProtectedRoute>
             }
@@ -199,27 +202,27 @@ export default function AppRoutes() {
           <Route
             path="/plans/:id"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <PlanFormPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Taxes */}
+          {/* Taxes: Admin Only */}
           <Route
             path="/taxes"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                 <TaxListPage />
               </ProtectedRoute>
             }
           />
 
-          {/* Discounts */}
+          {/* Discounts: Admin & Staff */}
           <Route
             path="/discounts"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <DiscountListPage />
               </ProtectedRoute>
             }
@@ -227,7 +230,7 @@ export default function AppRoutes() {
           <Route
             path="/discounts/new"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <DiscountFormPage />
               </ProtectedRoute>
             }
@@ -235,7 +238,7 @@ export default function AppRoutes() {
           <Route
             path="/discounts/:id"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <DiscountFormPage />
               </ProtectedRoute>
             }
@@ -245,7 +248,7 @@ export default function AppRoutes() {
           <Route
             path="/subscriptions"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ShellFeaturePlaceholder
                   title="Subscriptions"
                   description="Recurring subscription lifecycle and status management."
@@ -258,7 +261,7 @@ export default function AppRoutes() {
           <Route
             path="/invoices"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ShellFeaturePlaceholder
                   title="Invoices"
                   description="Customer invoices and payment status tracking."
@@ -271,7 +274,7 @@ export default function AppRoutes() {
           <Route
             path="/payments"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ShellFeaturePlaceholder
                   title="Payments"
                   description="Transaction ledger and payment reconciliation."
@@ -284,7 +287,7 @@ export default function AppRoutes() {
           <Route
             path="/quotation-templates"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.admin, USER_ROLES.staff]}>
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
                 <ShellFeaturePlaceholder
                   title="Quotation Templates"
                   description="Standardized contract and quote blueprints."
@@ -297,7 +300,7 @@ export default function AppRoutes() {
           <Route
             path="/portal"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.customer]}>
+              <ProtectedRoute allowedRoles={CUSTOMER_ROLES}>
                 <PortalOverview />
               </ProtectedRoute>
             }
@@ -305,7 +308,7 @@ export default function AppRoutes() {
           <Route
             path="/portal/subscriptions"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.customer]}>
+              <ProtectedRoute allowedRoles={CUSTOMER_ROLES}>
                 <ShellFeaturePlaceholder
                   title="My Subscriptions"
                   description="Review your active service subscriptions and renewals."
@@ -316,7 +319,7 @@ export default function AppRoutes() {
           <Route
             path="/portal/invoices"
             element={
-              <ProtectedRoute allowedRoles={[USER_ROLES.customer]}>
+              <ProtectedRoute allowedRoles={CUSTOMER_ROLES}>
                 <ShellFeaturePlaceholder
                   title="My Invoices"
                   description="Review invoice history and payment receipts."

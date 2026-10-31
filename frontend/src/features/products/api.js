@@ -36,4 +36,3 @@ export async function deleteProduct(id) {
   }
   return axiosClient.delete(`/products/${id}`);
 }
-

@@ -45,13 +45,13 @@ export default function Forbidden() {
               Mock Role Quick Switch
             </p>
             <div className="flex justify-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => switchMockRole(USER_ROLES.admin)}>
+              <Button size="sm" variant="outline" onClick={() => switchMockRole('admin')}>
                 Admin
               </Button>
-              <Button size="sm" variant="outline" onClick={() => switchMockRole(USER_ROLES.staff)}>
+              <Button size="sm" variant="outline" onClick={() => switchMockRole('staff')}>
                 Staff
               </Button>
-              <Button size="sm" variant="outline" onClick={() => switchMockRole(USER_ROLES.customer)}>
+              <Button size="sm" variant="outline" onClick={() => switchMockRole('customer')}>
                 Customer
               </Button>
             </div>

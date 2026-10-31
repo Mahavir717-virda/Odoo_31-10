@@ -5,13 +5,16 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import SearchInput from '../../../components/ui/SearchInput';
 import Pagination from '../../../components/ui/Pagination';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import usePaginatedList from '../../../hooks/usePaginatedList';
-import StaffFormModal from './StaffFormModal';
+import { formatDate } from '../../../utils/formatDate';
+import StaffFormModal from '../components/StaffFormModal';
 import { getStaffList, createStaff, updateStaff, deleteStaff } from '../api';
 
 export default function StaffListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const {
     data,
@@ -44,9 +47,10 @@ export default function StaffListPage() {
     load();
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to remove this staff member?')) {
-      await deleteStaff(id);
+  const handleConfirmDelete = async () => {
+    if (deleteTargetId) {
+      await deleteStaff(deleteTargetId);
+      setDeleteTargetId(null);
       load();
     }
   };
@@ -57,7 +61,7 @@ export default function StaffListPage() {
       label: 'Staff Member',
       render: (row) => (
         <div>
-          <div className="font-medium text-gray-900">{row.name}</div>
+          <div className="font-semibold text-gray-900">{row.name}</div>
           <div className="text-xs text-gray-500">{row.email}</div>
         </div>
       ),
@@ -65,19 +69,39 @@ export default function StaffListPage() {
     {
       key: 'role',
       label: 'Role',
+      render: (row) => {
+        const isAdmin = String(row.role).toUpperCase() === 'ADMIN';
+        return (
+          <Badge variant={isAdmin ? 'danger' : 'primary'}>
+            {String(row.role).toUpperCase()}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: 'company',
+      label: 'Department / Phone',
       render: (row) => (
-        <Badge variant={row.role === 'admin' ? 'danger' : 'primary'}>
-          {row.role}
+        <div>
+          <div className="text-sm text-gray-700">{row.company || 'Operations'}</div>
+          {row.phone && <div className="text-xs text-gray-400">{row.phone}</div>}
+        </div>
+      ),
+    },
+    {
+      key: 'is_active',
+      label: 'Status',
+      render: (row) => (
+        <Badge variant={row.is_active ? 'success' : 'default'}>
+          {row.is_active ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
     {
-      key: 'status',
-      label: 'Status',
+      key: 'created_at',
+      label: 'Joined',
       render: (row) => (
-        <Badge variant={row.status === 'active' ? 'success' : 'default'}>
-          {row.status}
-        </Badge>
+        <span className="text-xs text-gray-500">{formatDate(row.created_at)}</span>
       ),
     },
     {
@@ -88,7 +112,11 @@ export default function StaffListPage() {
           <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(row)}>
             Edit
           </Button>
-          <Button size="sm" variant="danger" onClick={() => handleDelete(row.id)}>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={() => setDeleteTargetId(row.id)}
+          >
             Delete
           </Button>
         </div>
@@ -99,8 +127,8 @@ export default function StaffListPage() {
   return (
     <div>
       <PageHeader
-        title="Staff Management"
-        description="Manage your team members and administrative access."
+        title="Staff Directory (Admin Only)"
+        description="Manage internal team accounts and role-based permissions."
         actions={
           <Button variant="primary" onClick={handleOpenCreate}>
             + Add Staff Member
@@ -140,7 +168,16 @@ export default function StaffListPage() {
         onSubmit={handleSave}
         staff={editingStaff}
       />
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        title="Remove Staff Member"
+        message="Are you sure you want to remove this staff member? They will lose access immediately."
+        confirmLabel="Remove Staff"
+        confirmVariant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </div>
   );
 }
-

@@ -1,6 +1,5 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { USER_ROLES } from '../utils/constants';
 import Spinner from '../components/ui/Spinner';
 
 export default function RoleRedirect() {
@@ -18,7 +17,7 @@ export default function RoleRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === USER_ROLES.customer) {
+  if (String(user?.role).toUpperCase() === 'CUSTOMER') {
     return <Navigate to="/portal" replace />;
   }
 

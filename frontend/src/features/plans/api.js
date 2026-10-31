@@ -37,3 +37,23 @@ export async function deletePlan(id) {
   return axiosClient.delete(`/plans/${id}`);
 }
 
+export async function closePlan(id) {
+  if (isMockEnabled()) {
+    return mockPlans.mockClosePlan(id);
+  }
+  return axiosClient.post(`/plans/${id}/close`);
+}
+
+export async function togglePausePlan(id) {
+  if (isMockEnabled()) {
+    return mockPlans.mockTogglePausePlan(id);
+  }
+  return axiosClient.post(`/plans/${id}/toggle-pause`);
+}
+
+export async function renewPlan(id, newEndDate = null) {
+  if (isMockEnabled()) {
+    return mockPlans.mockRenewPlan(id, newEndDate);
+  }
+  return axiosClient.post(`/plans/${id}/renew`, { end_date: newEndDate });
+}

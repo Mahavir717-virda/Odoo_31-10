@@ -1,28 +1,48 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import axiosClient from '../api/axiosClient';
 import { isMockEnabled, mockResponse } from '../api/mockHelper';
-import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
+import { STORAGE_KEYS } from '../utils/constants';
 
 const AuthContext = createContext(null);
 
 export const MOCK_USERS = {
-  [USER_ROLES.admin]: {
+  admin: {
     id: 1,
     name: 'Admin User',
-    email: 'admin@odoo.local',
-    role: USER_ROLES.admin,
+    email: 'admin@brightloop.test',
+    role: 'ADMIN',
+    company: 'Brightloop Admin',
+    phone: '+1-555-0100',
+    is_active: true,
   },
-  [USER_ROLES.staff]: {
+  staff: {
     id: 2,
-    name: 'Staff Specialist',
-    email: 'staff@odoo.local',
-    role: USER_ROLES.staff,
+    name: 'Staff Member',
+    email: 'staff@brightloop.test',
+    role: 'STAFF',
+    company: 'Brightloop Operations',
+    phone: '+1-555-0150',
+    is_active: true,
   },
-  [USER_ROLES.customer]: {
+  customer: {
     id: 3,
-    name: 'Acme Corp (Customer)',
-    email: 'customer@odoo.local',
-    role: USER_ROLES.customer,
+    name: 'Acme Corp Contact',
+    email: 'customer1@acme.test',
+    role: 'CUSTOMER',
+    company: 'Acme Corporation',
+    phone: '+1-555-0101',
+    address: '100 Acme Way, Metropolis',
+    is_active: true,
+  },
+  customer2: {
+    id: 4,
+    name: 'Globex Contact',
+    email: 'customer2@globex.test',
+    role: 'CUSTOMER',
+    company: 'Globex Inc',
+    phone: '+1-555-0102',
+    address: '200 Globex Blvd, Silicon City',
+    is_active: true,
   },
 };
 
@@ -80,10 +100,9 @@ export function AuthProvider({ children }) {
 
       try {
         if (isMockEnabled()) {
-          // If stored user exists, keep it, otherwise default to admin mock
           const storedUser = localStorage.getItem(STORAGE_KEYS.auth_user);
-          const activeUser = storedUser ? JSON.parse(storedUser) : MOCK_USERS[USER_ROLES.admin];
-          const meResponse = await mockResponse({ user: activeUser }, 150);
+          const activeUser = storedUser ? JSON.parse(storedUser) : MOCK_USERS.admin;
+          const meResponse = await mockResponse({ user: activeUser }, 100);
           if (isMounted) {
             setUser(meResponse.user);
             setIsLoading(false);
@@ -99,7 +118,6 @@ export function AuthProvider({ children }) {
         }
       } catch (err) {
         if (isMounted) {
-          // If unauthenticated or token expired, clear session
           if (err?.status === 401) {
             persistSession(null, null);
           }
@@ -124,26 +142,29 @@ export function AuthProvider({ children }) {
       setIsLoading(true);
       try {
         if (isMockEnabled()) {
-          // Detect mock user role from email or argument
-          let matchedRole = role || USER_ROLES.admin;
-          if (email) {
+          let matchedKey = 'admin';
+          if (role) {
+            matchedKey = String(role).toLowerCase();
+          } else if (email) {
             const lowerEmail = email.toLowerCase();
-            if (lowerEmail.includes('customer')) {
-              matchedRole = USER_ROLES.customer;
+            if (lowerEmail.includes('customer2') || lowerEmail.includes('globex')) {
+              matchedKey = 'customer2';
+            } else if (lowerEmail.includes('customer') || lowerEmail.includes('acme')) {
+              matchedKey = 'customer';
             } else if (lowerEmail.includes('staff')) {
-              matchedRole = USER_ROLES.staff;
-            } else if (lowerEmail.includes('admin')) {
-              matchedRole = USER_ROLES.admin;
+              matchedKey = 'staff';
+            } else {
+              matchedKey = 'admin';
             }
           }
 
           const mockUser = {
-            ...(MOCK_USERS[matchedRole] || MOCK_USERS[USER_ROLES.admin]),
-            email: email || MOCK_USERS[matchedRole]?.email || 'user@odoo.local',
+            ...(MOCK_USERS[matchedKey] || MOCK_USERS.admin),
+            email: email || MOCK_USERS[matchedKey]?.email,
           };
-          const mockToken = `mock-token-${matchedRole}-${Date.now()}`;
+          const mockToken = `mock-token-${String(mockUser.role).toLowerCase()}-${Date.now()}`;
 
-          await mockResponse(null, 300);
+          await mockResponse(null, 200);
           persistSession(mockToken, mockUser);
           return { user: mockUser, token: mockToken };
         }
@@ -170,13 +191,17 @@ export function AuthProvider({ children }) {
         if (isMockEnabled()) {
           const registeredUser = {
             id: Date.now(),
-            name: payload?.name || payload?.fullName || 'New User',
+            name: payload?.name || payload?.fullName || 'New Customer',
             email: payload?.email,
-            role: payload?.role || USER_ROLES.customer,
+            role: 'CUSTOMER',
+            company: payload?.company || '',
+            phone: payload?.phone || '',
+            is_active: true,
+            created_at: new Date().toISOString(),
           };
-          const mockToken = `mock-token-${registeredUser.role}-${Date.now()}`;
+          const mockToken = `mock-token-customer-${Date.now()}`;
 
-          await mockResponse(null, 300);
+          await mockResponse(null, 250);
           persistSession(mockToken, registeredUser);
           return { user: registeredUser, token: mockToken };
         }
@@ -208,15 +233,16 @@ export function AuthProvider({ children }) {
 
   // Switch mock role during testing/development
   const switchMockRole = useCallback(
-    (role) => {
-      const targetUser = MOCK_USERS[role] || MOCK_USERS[USER_ROLES.admin];
-      const targetToken = `mock-token-${targetUser.role}-${Date.now()}`;
+    (targetRole) => {
+      const key = String(targetRole).toLowerCase();
+      const targetUser = MOCK_USERS[key] || MOCK_USERS.admin;
+      const targetToken = `mock-token-${String(targetUser.role).toLowerCase()}-${Date.now()}`;
       persistSession(targetToken, targetUser);
     },
     [persistSession]
   );
 
-  // Role checking helper
+  // Role checking helper with case-insensitive normalization
   const hasRole = useCallback(
     (allowedRoles) => {
       if (!allowedRoles || (Array.isArray(allowedRoles) && allowedRoles.length === 0)) {
@@ -225,13 +251,19 @@ export function AuthProvider({ children }) {
       if (!user || !user.role) {
         return false;
       }
+      const userRoleLower = String(user.role).toLowerCase();
       if (Array.isArray(allowedRoles)) {
-        return allowedRoles.includes(user.role);
+        return allowedRoles.some((r) => String(r).toLowerCase() === userRoleLower);
       }
-      return user.role === allowedRoles;
+      return String(allowedRoles).toLowerCase() === userRoleLower;
     },
     [user]
   );
+
+  const userRoleLower = String(user?.role || '').toLowerCase();
+  const isAdmin = userRoleLower === 'admin';
+  const isStaff = userRoleLower === 'staff';
+  const isCustomer = userRoleLower === 'customer';
 
   const value = useMemo(
     () => ({
@@ -244,11 +276,13 @@ export function AuthProvider({ children }) {
       logout,
       hasRole,
       switchMockRole,
-      isAdmin: user?.role === USER_ROLES.admin,
-      isStaff: user?.role === USER_ROLES.staff || user?.role === USER_ROLES.admin,
-      isCustomer: user?.role === USER_ROLES.customer,
+      isAdmin,
+      isStaff,
+      isCustomer,
+      // Helper checking if user has staff privileges (admin or staff)
+      isStaffOrAdmin: isAdmin || isStaff,
     }),
-    [user, token, isLoading, login, register, logout, hasRole, switchMockRole]
+    [user, token, isLoading, login, register, logout, hasRole, switchMockRole, isAdmin, isStaff, isCustomer]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -263,4 +297,3 @@ export function useAuth() {
 }
 
 export default AuthContext;
-

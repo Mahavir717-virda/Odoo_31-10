@@ -9,6 +9,13 @@ export async function getStaffList(params) {
   return axiosClient.get('/staff', { params });
 }
 
+export async function getStaffById(id) {
+  if (isMockEnabled()) {
+    return mockStaff.mockGetStaffById(id);
+  }
+  return axiosClient.get(`/staff/${id}`);
+}
+
 export async function createStaff(data) {
   if (isMockEnabled()) {
     return mockStaff.mockCreateStaff(data);
@@ -29,4 +36,3 @@ export async function deleteStaff(id) {
   }
   return axiosClient.delete(`/staff/${id}`);
 }
-

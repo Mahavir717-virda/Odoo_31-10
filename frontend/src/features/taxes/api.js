@@ -9,6 +9,13 @@ export async function getTaxes(params) {
   return axiosClient.get('/taxes', { params });
 }
 
+export async function getTaxById(id) {
+  if (isMockEnabled()) {
+    return mockTaxes.mockGetTaxById(id);
+  }
+  return axiosClient.get(`/taxes/${id}`);
+}
+
 export async function createTax(data) {
   if (isMockEnabled()) {
     return mockTaxes.mockCreateTax(data);
@@ -29,4 +36,3 @@ export async function deleteTax(id) {
   }
   return axiosClient.delete(`/taxes/${id}`);
 }
-
