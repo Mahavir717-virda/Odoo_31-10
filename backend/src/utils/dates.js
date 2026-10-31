@@ -9,9 +9,44 @@
  * @returns {string}
  */
 const addDays = (date, days) => {
-  const d = new Date(date);
-  d.setDate(d.getDate() + Number(days));
-  return d.toISOString().split('T')[0];
+  const str = typeof date === 'string' ? date.split('T')[0] : date.toISOString().split('T')[0];
+  const [y, m, d] = str.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + Number(days)));
+  return dt.toISOString().split('T')[0];
+};
+
+/**
+ * Adds a billing period (DAILY, WEEKLY, MONTHLY, YEARLY) to a date string (YYYY-MM-DD)
+ * @param {string|Date} date
+ * @param {'DAILY'|'WEEKLY'|'MONTHLY'|'YEARLY'} period
+ * @returns {string}
+ */
+const addPeriod = (date, period) => {
+  const str = typeof date === 'string' ? date.split('T')[0] : date.toISOString().split('T')[0];
+  const [y, m, d] = str.split('-').map(Number);
+
+  switch (period) {
+    case 'DAILY':
+      return addDays(str, 1);
+    case 'WEEKLY':
+      return addDays(str, 7);
+    case 'MONTHLY': {
+      const targetMonth = m; // 1-indexed target month
+      const targetYear = y + Math.floor(targetMonth / 12);
+      const normalizedMonth = targetMonth % 12; // 0-indexed month
+      const daysInTargetMonth = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+      const targetDay = Math.min(d, daysInTargetMonth);
+      return new Date(Date.UTC(targetYear, normalizedMonth, targetDay)).toISOString().split('T')[0];
+    }
+    case 'YEARLY': {
+      const targetYear = y + 1;
+      const daysInTargetMonth = new Date(Date.UTC(targetYear, m, 0)).getUTCDate();
+      const targetDay = Math.min(d, daysInTargetMonth);
+      return new Date(Date.UTC(targetYear, m - 1, targetDay)).toISOString().split('T')[0];
+    }
+    default:
+      throw new Error(`Unsupported billing period: ${period}`);
+  }
 };
 
 /**
@@ -36,7 +71,7 @@ const formatDate = (date) => {
 
 module.exports = {
   addDays,
+  addPeriod,
   todayDate,
   formatDate,
 };
-

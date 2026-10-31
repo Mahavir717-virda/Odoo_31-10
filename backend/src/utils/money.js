@@ -57,10 +57,69 @@ const computeTotals = (lines = []) => {
   };
 };
 
+/**
+ * Computes totals for invoice lines and applied discounts
+ * @param {Array<{ amount: number, tax_amount: number, product_id?: number }>} lines
+ * @param {Array<{ id: number, type: string, value: number, scope: string, product_ids?: number[] }>} applicableDiscounts
+ * @returns {{ subtotal: number, discount_total: number, tax_total: number, total: number, appliedDiscounts: Array<{ discount_id: number, amount: number }> }}
+ */
+const computeInvoiceTotals = (lines = [], applicableDiscounts = []) => {
+  let subtotal = 0;
+  let tax_total = 0;
+
+  for (const line of lines) {
+    subtotal += Number(line.amount || 0);
+    tax_total += Number(line.tax_amount || 0);
+  }
+
+  subtotal = round2(subtotal);
+  tax_total = round2(tax_total);
+
+  let discount_total = 0;
+  const appliedDiscounts = [];
+
+  for (const discount of applicableDiscounts) {
+    let eligibleBase = 0;
+    if (discount.scope === 'SUBSCRIPTION') {
+      eligibleBase = subtotal;
+    } else if (discount.scope === 'PRODUCTS') {
+      const prodSet = new Set((discount.product_ids || []).map(Number));
+      const matchLines = lines.filter((l) => prodSet.has(Number(l.product_id)));
+      eligibleBase = matchLines.reduce((sum, l) => sum + Number(l.amount || 0), 0);
+    }
+
+    let discAmount = 0;
+    if (discount.type === 'PERCENT') {
+      discAmount = round2((eligibleBase * Number(discount.value)) / 100);
+    } else if (discount.type === 'FIXED') {
+      discAmount = round2(Math.min(Number(discount.value), eligibleBase));
+    }
+
+    if (discAmount > 0) {
+      discount_total += discAmount;
+      appliedDiscounts.push({
+        discount_id: discount.id,
+        amount: discAmount,
+      });
+    }
+  }
+
+  discount_total = round2(discount_total);
+  const total = round2(Math.max(0, subtotal - discount_total + tax_total));
+
+  return {
+    subtotal,
+    discount_total,
+    tax_total,
+    total,
+    appliedDiscounts,
+  };
+};
+
 module.exports = {
   round2,
   computeLineAmount,
   computeTaxAmount,
   computeTotals,
+  computeInvoiceTotals,
 };
-
