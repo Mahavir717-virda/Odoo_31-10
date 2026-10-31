@@ -80,7 +80,7 @@ function getDiscoveredRoutes() {
       if (path.includes('/auth/')) continue;
 
       const mod = modules[path];
-      const list = mod.default || mod.routes;
+      const list = mod.default || mod.routes || mod.QUOTATION_TEMPLATES_ROUTES || mod.SUBSCRIPTIONS_ROUTES || Object.values(mod).find(Array.isArray);
       if (Array.isArray(list)) {
         list.forEach((r) => {
           if (r && r.path && r.element) {
