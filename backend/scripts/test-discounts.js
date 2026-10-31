@@ -1,13 +1,13 @@
 const path = require('path');
 // Support running from repo root or backend folder
-require(path.resolve(__dirname, '../backend/node_modules/dotenv')).config({ path: path.resolve(__dirname, '../backend/.env') });
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
-const db = require(path.resolve(__dirname, '../backend/src/config/db'));
+const db = require(path.resolve(__dirname, '../src/config/db'));
 const {
   getApplicableDiscounts,
   markDiscountUsed,
   createDiscount,
-} = require(path.resolve(__dirname, '../backend/src/modules/discounts/discounts.service'));
+} = require(path.resolve(__dirname, '../src/modules/discounts/discounts.service'));
 
 async function runTests() {
   console.log('=== Starting Discounts Test Suite ===\n');

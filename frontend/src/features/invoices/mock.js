@@ -40,7 +40,13 @@ function invoiceTotals(lines) {
 }
 
 const now = new Date();
-const toISO = (d) => d.toISOString().split('T')[0];
+const toISO = (d) => {
+  const date = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toISOString().split('T')[0];
+};
 const addDays = (d, days) => {
   const date = new Date(d);
   date.setDate(date.getDate() + days);

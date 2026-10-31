@@ -1,36 +1,52 @@
-export default function ProfileCard({ user }) {
-  const initials = (user?.name || '')
-    .split(' ')
-    .map((part) => part.charAt(0))
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+import { useAuth } from '../../../context/AuthContext';
+import Card from '../../../components/ui/Card';
+import Badge from '../../../components/ui/Badge';
+import Button from '../../../components/ui/Button';
+
+export default function ProfileCard({ user: propUser = null, onEdit = null }) {
+  const { user: authUser } = useAuth();
+  const user = propUser || authUser;
+
+  if (!user) {
+    return null;
+  }
 
   return (
-    <div className="rounded-lg border bg-white p-6 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-lg">
-          {initials || '?'}
+    <Card className="p-6 bg-white border border-gray-200 shadow-sm rounded-xl">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+        {/* Avatar */}
+        <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-2xl shadow-md">
+          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
         </div>
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">{user?.name || 'Customer'}</h2>
-          <p className="text-sm text-gray-500">{user?.email || '-'}</p>
+
+        {/* User Details */}
+        <div className="flex-1 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
+            {user.role && (
+              <div>
+                <Badge variant={user.role === 'admin' ? 'danger' : user.role === 'staff' ? 'primary' : 'success'}>
+                  {user.role}
+                </Badge>
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mt-0.5">{user.email}</p>
+          {user.phone && <p className="text-xs text-gray-400 mt-0.5">{user.phone}</p>}
+          {user.company && (
+            <p className="text-xs font-medium text-gray-600 mt-1">
+              Company: <span className="text-gray-800">{user.company}</span>
+            </p>
+          )}
         </div>
+
+        {/* Action */}
+        {onEdit && (
+          <Button variant="outline" size="sm" onClick={onEdit}>
+            Edit Profile
+          </Button>
+        )}
       </div>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-        <div className="sm:col-span-2">
-          <dt className="text-xs font-semibold text-gray-500 uppercase">Member Since</dt>
-          <dd className="text-gray-900">{user?.member_since || '-'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold text-gray-500 uppercase">Plan</dt>
-          <dd className="text-gray-900">{user?.plan || '-'}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold text-gray-500 uppercase">Customer ID</dt>
-          <dd className="text-gray-900 truncate">{user?.id || '-'}</dd>
-        </div>
-      </dl>
-    </div>
+    </Card>
   );
 }
