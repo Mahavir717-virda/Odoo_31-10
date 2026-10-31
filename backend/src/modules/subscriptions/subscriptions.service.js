@@ -5,41 +5,7 @@ const { computeLineAmount, computeTaxAmount, computeTotals } = require('../../ut
 const { nextSubscriptionNumber } = require('../../utils/numbers');
 const { addDays, todayDate } = require('../../utils/dates');
 const { canTransition } = require('./subscriptions.statusFlow');
-
-// Import getVariantPrice from products.service (BE1)
-let getVariantPrice;
-try {
-  ({ getVariantPrice } = require('../products/products.service'));
-} catch (err) {
-  // TODO: Switch to products.service when BE1 pushes
-  getVariantPrice = async (productId, variantId = null, client = null) => {
-    const prodRes = await db.query(
-      'SELECT id, sales_price, is_active FROM products WHERE id = $1',
-      [productId],
-      client
-    );
-    if (prodRes.rows.length === 0) {
-      throw new ApiError(400, `Product with id ${productId} not found`);
-    }
-    const product = prodRes.rows[0];
-    if (!product.is_active) {
-      throw new ApiError(400, `Product with id ${productId} is inactive`);
-    }
-    let price = Number(product.sales_price);
-    if (variantId) {
-      const varRes = await db.query(
-        'SELECT id, extra_price FROM product_variants WHERE id = $1 AND product_id = $2',
-        [variantId, productId],
-        client
-      );
-      if (varRes.rows.length === 0) {
-        throw new ApiError(400, `Variant with id ${variantId} does not belong to product ${productId}`);
-      }
-      price += Number(varRes.rows[0].extra_price);
-    }
-    return Number(price.toFixed(2));
-  };
-}
+const { getVariantPrice } = require('../products/products.service');
 
 /**
  * Shared internal function buildLines(lines, client)
@@ -781,4 +747,3 @@ module.exports = {
   resumeSubscription,
   closeSubscription,
 };
-

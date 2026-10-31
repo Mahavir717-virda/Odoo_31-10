@@ -1,197 +1,104 @@
-import { useCallback, useState } from 'react';
-
-import Button from '../../../components/ui/Button';
-import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
-import SearchInput from '../../../components/ui/SearchInput';
-import Table from '../../../components/ui/Table';
-import Pagination from '../../../components/ui/Pagination';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import axiosClient from '../../../api/axiosClient';
+import { normalizeListResponse } from '../../../api/featureUtils';
 import Badge from '../../../components/ui/Badge';
+import Input from '../../../components/ui/Input';
+import Pagination from '../../../components/ui/Pagination';
+import SearchInput from '../../../components/ui/SearchInput';
+import Select from '../../../components/ui/Select';
+import Table from '../../../components/ui/Table';
 import usePaginatedList from '../../../hooks/usePaginatedList';
-import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
+import { formatMoney } from '../../../utils/formatMoney';
 import { fetchInvoices, isOverdue } from '../api';
-import { INVOICE_STATUSES, CUSTOMERS, SUBSCRIPTIONS } from '../mock';
 import GenerateDueButton from '../components/GenerateDueButton';
 
-const STATUS_VARIANTS = {
-  draft: 'default',
-  open: 'info',
-  confirmed: 'default',
-  unpaid: 'danger',
-  paid: 'success',
-  cancelled: 'default',
-};
+const STATUSES = ['DRAFT', 'CONFIRMED', 'PAID', 'CANCELLED'];
 
 export default function InvoiceListPage() {
-  const [generateResult, setGenerateResult] = useState(null);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [customers, setCustomers] = useState([]);
+  const [customersError, setCustomersError] = useState('');
+  const [counts, setCounts] = useState(null);
+  const [countsRefresh, setCountsRefresh] = useState(0);
+  const loadList = useCallback((params) => fetchInvoices(params), []);
+  const list = usePaginatedList(loadList);
+  const { filters, set_filters: setListFilters } = list;
 
-  const fetchList = useCallback(async (params) => {
-    const response = await fetchInvoices(params);
-    return response;
+  const appliedQueryRef = useRef(false);
+  useEffect(() => {
+    if (appliedQueryRef.current) return;
+    const queryFilters = Object.fromEntries(
+      ['subscription_id', 'status', 'overdue', 'from', 'to']
+        .filter((key) => searchParams.has(key))
+        .map((key) => [key, searchParams.get(key)])
+    );
+    if (Object.keys(queryFilters).length) {
+      appliedQueryRef.current = true;
+      setListFilters({ ...filters, ...queryFilters });
+    } else {
+      appliedQueryRef.current = true;
+    }
+  }, [searchParams, filters, setListFilters]);
+
+  useEffect(() => {
+    let active = true;
+    axiosClient.get('/users', { params: { page: 1, limit: 100, role: 'CUSTOMER' } })
+      .then((response) => active && setCustomers(normalizeListResponse(response).data))
+      .catch((error) => active && setCustomersError(error.message || 'Unable to load customer filters.'));
+    return () => { active = false; };
   }, []);
 
-  const {
-    data,
-    total,
-    page,
-    page_size,
-    search,
-    filters,
-    loading,
-    error,
-    set_page,
-    set_page_size,
-    set_search,
-    set_filters,
-    refresh,
-  } = usePaginatedList(fetchList, { page_size: 10 });
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      ...STATUSES.map((status) => fetchInvoices({ page: 1, limit: 1, status })),
+      fetchInvoices({ page: 1, limit: 1, overdue: true }),
+    ]).then((responses) => {
+      if (active) setCounts([...responses.slice(0, -1).map((response) => response.total), responses.at(-1).total]);
+    }).catch(() => active && setCounts(null));
+    return () => { active = false; };
+  }, [countsRefresh]);
 
-  const handleGenerateSuccess = () => {
-    setGenerateResult(null);
-    refresh();
+  const refreshAfterGenerate = () => {
+    list.refresh();
+    setCountsRefresh((current) => current + 1);
   };
 
   const columns = [
-    { key: 'invoice_number', label: 'Invoice No' },
+    { key: 'number', label: 'Invoice' },
     { key: 'customer_name', label: 'Customer' },
-    { key: 'subscription_name', label: 'Subscription' },
-    { key: 'issue_date', label: 'Issue Date', format: (value) => formatDate(value) },
-    { key: 'due_date', label: 'Due Date', format: (value) => formatDate(value) },
+    { key: 'subscription_number', label: 'Subscription' },
+    { key: 'invoice_date', label: 'Invoice date', format: (value) => formatDate(value) },
+    { key: 'due_date', label: 'Due date', format: (value) => formatDate(value) },
     { key: 'total', label: 'Total', format: (value) => formatMoney(value) },
-    { key: 'paid_amount', label: 'Paid', format: (value) => formatMoney(value) },
-    { key: 'balance', label: 'Balance', format: (value, row) => {
-      const overdue = isOverdue(row);
-      return (
-        <span className={`font-semibold ${overdue ? 'text-red-600' : 'text-gray-900'}`}>
-          {formatMoney(value)}
-        </span>
-      );
-    }},
-    { key: 'status', label: 'Status', format: (value) => (
-      <Badge variant={STATUS_VARIANTS[value] ?? 'default'}>
-        {value.charAt(0).toUpperCase() + value.slice(1)}
-      </Badge>
-    )},
-    {
-      key: 'actions',
-      label: 'Actions',
-      format: () => (
-        <Button type="button" variant="outline" size="sm" onClick={() => {}}>
-          View
-        </Button>
-      ),
-    },
+    { key: 'amount_paid', label: 'Paid', format: (value) => formatMoney(value) },
+    { key: 'balance', label: 'Balance', format: (value, row) => <span className={isOverdue(row) ? 'font-semibold text-red-600' : ''}>{formatMoney(value)}</span> },
+    { key: 'status', label: 'Status', format: (value, row) => <span className="flex items-center gap-2"><Badge variant={String(value).toUpperCase() === 'PAID' ? 'success' : String(value).toUpperCase() === 'CANCELLED' ? 'default' : 'info'}>{value}</Badge>{isOverdue(row) && <Badge variant="danger">Overdue</Badge>}</span> },
+    { key: 'open', label: '', render: (invoice) => <button type="button" className="font-medium text-indigo-600 hover:underline" onClick={(event) => { event.stopPropagation(); navigate(`/invoices/${invoice.id}`); }}>View</button> },
   ];
 
   return (
     <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-            <p className="text-gray-600">Manage invoices, payments, and billing.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <GenerateDueButton onSuccess={handleGenerateSuccess} />
-            <Button>Create Invoice</Button>
-          </div>
-        </div>
-
-        {generateResult && (
-          <div className="p-3 rounded border border-indigo-200 bg-indigo-50 text-indigo-800 text-sm">
-            {generateResult.message}
-          </div>
-        )}
-
-        {error && (
-          <div className="p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
-            Error: {error.message}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <SearchInput
-            value={search}
-            onChange={set_search}
-            placeholder="Search invoice, customer, subscription..."
-            className="md:col-span-2 lg:col-span-2"
-          />
-          <Select
-            label="Status"
-            value={filters.status ?? ''}
-            onChange={(event) =>
-              set_filters({ ...filters, status: event.target.value || undefined })
-            }
-            placeholder="All statuses"
-            options={INVOICE_STATUSES}
-          />
-          <Select
-            label="Overdue"
-            value={filters.overdue ?? ''}
-            onChange={(event) => {
-              const val = event.target.value;
-              set_filters({ ...filters, overdue: val === '' ? undefined : val });
-            }}
-            placeholder="All"
-            options={[
-              { value: 'true', label: 'Overdue' },
-              { value: 'false', label: 'Not Overdue' },
-            ]}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Select
-            label="Customer"
-            value={filters.customer ?? ''}
-            onChange={(event) =>
-              set_filters({ ...filters, customer: event.target.value || undefined })
-            }
-            placeholder="All customers"
-            options={CUSTOMERS.map((c) => ({ value: c.id, label: c.name }))}
-          />
-          <Select
-            label="Subscription"
-            value={filters.subscription ?? ''}
-            onChange={(event) =>
-              set_filters({ ...filters, subscription: event.target.value || undefined })
-            }
-            placeholder="All subscriptions"
-            options={SUBSCRIPTIONS.map((s) => ({ value: s.id, label: `${s.customer_name} - ${s.plan}` }))}
-          />
-          <Input
-            label="From Date"
-            type="date"
-            value={filters.from_date ?? ''}
-            onChange={(event) =>
-              set_filters({ ...filters, from_date: event.target.value || undefined })
-            }
-          />
-          <Input
-            label="To Date"
-            type="date"
-            value={filters.to_date ?? ''}
-            onChange={(event) =>
-              set_filters({ ...filters, to_date: event.target.value || undefined })
-            }
-          />
-        </div>
-
-        <Table
-          columns={columns}
-          data={data}
-          loading={loading}
-          rowKey="id"
-          emptyMessage="No invoices found."
-        />
-
-        <Pagination
-          page={page}
-          pageSize={page_size}
-          total={total}
-          onChange={set_page}
-          onPageSizeChange={set_page_size}
-        />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-2xl font-bold text-gray-900">Invoices</h1><p className="text-gray-600">Review invoices, balances, and payments.</p></div>
+        <GenerateDueButton onSuccess={refreshAfterGenerate} />
       </div>
+      {counts && <div className="flex flex-wrap gap-2">{['Draft', 'Confirmed', 'Paid', 'Overdue'].map((label, index) => <Badge key={label} variant={index === 3 && counts[index] ? 'danger' : 'default'}>{label}: {counts[index]}</Badge>)}</div>}
+      {list.error && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{list.error.message}</p>}
+      {customersError && <p className="text-sm text-amber-800" role="status">{customersError}</p>}
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+        <SearchInput value={list.search} onChange={list.set_search} placeholder="Search invoice or customer..." className="lg:col-span-2" />
+        <Select id="invoice-status" label="Status" value={list.filters.status ?? ''} onChange={(event) => list.set_filters({ ...list.filters, status: event.target.value || undefined })} options={STATUSES.map((status) => ({ value: status, label: status }))} placeholder="All statuses" />
+        <Select id="invoice-overdue" label="Overdue only" value={list.filters.overdue ? 'true' : ''} onChange={(event) => list.set_filters({ ...list.filters, overdue: event.target.value || undefined })} options={[{ value: 'true', label: 'Overdue' }]} placeholder="All invoices" />
+        <Select id="invoice-customer" label="Customer" value={list.filters.customer_id ?? ''} onChange={(event) => list.set_filters({ ...list.filters, customer_id: event.target.value || undefined })} options={customers.map((customer) => ({ value: String(customer.id), label: customer.name }))} placeholder="All customers" />
+        <Input id="invoice-from" label="From date" type="date" value={list.filters.from ?? ''} onChange={(event) => list.set_filters({ ...list.filters, from: event.target.value || undefined })} />
+        <Input id="invoice-to" label="To date" type="date" value={list.filters.to ?? ''} onChange={(event) => list.set_filters({ ...list.filters, to: event.target.value || undefined })} />
+      </div>
+      <Table columns={columns} data={list.data} loading={list.loading} rowKey="id" emptyMessage="No invoices found." onRowClick={(invoice) => navigate(`/invoices/${invoice.id}`)} />
+      <Pagination page={list.page} pageSize={list.page_size} total={list.total} onChange={list.set_page} onPageSizeChange={list.set_page_size} />
+    </div>
   );
 }

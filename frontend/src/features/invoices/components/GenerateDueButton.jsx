@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import Button from '../../../components/ui/Button';
-import { ToastProvider, useToast } from '../../../components/ui/Toast';
+import { useToast } from '../../../components/ui/Toast';
 import { generateDueInvoices } from '../api';
 
 export default function GenerateDueButton({ onSuccess }) {
@@ -12,11 +12,13 @@ export default function GenerateDueButton({ onSuccess }) {
     setLoading(true);
     try {
       const response = await generateDueInvoices();
-      const { created, message } = response;
+      const { created = 0, skipped = 0, errors = [] } = response ?? {};
+      const errorSummary = errors.slice(0, 3).map((item) => item.message).filter(Boolean).join(' ');
+      const message = `${created} invoice(s) generated, ${skipped} skipped.${errors.length ? ` ${errors.length} error(s): ${errorSummary}` : ''}`;
       toast({
         title: 'Generate Due Invoices',
         description: message,
-        variant: created.length ? 'success' : 'info',
+        variant: errors.length ? 'warning' : created ? 'success' : 'info',
       });
       onSuccess?.();
     } catch (err) {
@@ -31,8 +33,7 @@ export default function GenerateDueButton({ onSuccess }) {
   };
 
   return (
-    <ToastProvider>
-      <Button
+    <Button
         type="button"
         variant="outline"
         size="sm"
@@ -41,7 +42,6 @@ export default function GenerateDueButton({ onSuccess }) {
         onClick={handleGenerate}
       >
         Generate Due Invoices
-      </Button>
-    </ToastProvider>
+    </Button>
   );
 }

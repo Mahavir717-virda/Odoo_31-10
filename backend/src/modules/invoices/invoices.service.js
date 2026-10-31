@@ -6,18 +6,7 @@ const { nextInvoiceNumber } = require('../../utils/numbers');
 const { addDays, addPeriod, todayDate } = require('../../utils/dates');
 const { sendMail } = require('../../utils/mailer');
 const env = require('../../config/env');
-
-// Import getApplicableDiscounts and markDiscountUsed from discounts.service (BE1)
-let getApplicableDiscounts;
-let markDiscountUsed;
-
-try {
-  ({ getApplicableDiscounts, markDiscountUsed } = require('../discounts/discounts.service'));
-} catch (err) {
-  // TODO: Switch to discounts.service when BE1 pushes
-  getApplicableDiscounts = async () => [];
-  markDiscountUsed = async () => {};
-}
+const { getApplicableDiscounts, markDiscountUsed } = require('../discounts/discounts.service');
 
 /**
  * Generates an invoice for a single subscription within the caller's transaction
@@ -488,7 +477,12 @@ const sendInvoice = async (id) => {
       text: `Invoice ${invoice.number}: Total $${invoice.total.toFixed(2)}. Due date: ${invoice.due_date}. View at ${viewUrl}`,
     });
   } catch (mailErr) {
-    throw new ApiError(502, `Failed to send email: ${mailErr.message}`);
+    console.error('Invoice email delivery failed', {
+      invoiceId: id,
+      errorName: mailErr?.name,
+      errorCode: mailErr?.code,
+    });
+    throw new ApiError(502, 'Failed to send invoice email. Please try again later.');
   }
 
   const updateRes = await db.query(
@@ -508,4 +502,3 @@ module.exports = {
   cancelInvoice,
   sendInvoice,
 };
-

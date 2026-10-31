@@ -68,12 +68,17 @@ axiosClient.interceptors.response.use(
         } catch {
           // ignore
         }
+        window.dispatchEvent(new CustomEvent('app:auth-expired'));
         if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register')) {
-          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+          window.dispatchEvent(new CustomEvent('app:navigate', {
+            detail: { to: `/login?redirect=${encodeURIComponent(currentPath)}`, replace: true },
+          }));
         }
       } else if (status === 403) {
         if (!currentPath.startsWith('/forbidden')) {
-          window.location.href = '/forbidden';
+          window.dispatchEvent(new CustomEvent('app:navigate', {
+            detail: { to: '/forbidden', replace: true },
+          }));
         }
       }
     }
@@ -83,4 +88,3 @@ axiosClient.interceptors.response.use(
 );
 
 export default axiosClient;
-

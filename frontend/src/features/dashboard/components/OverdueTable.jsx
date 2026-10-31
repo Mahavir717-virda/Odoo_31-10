@@ -1,31 +1,24 @@
+import { useNavigate } from 'react-router-dom';
+import Badge from '../../../components/ui/Badge';
 import Table from '../../../components/ui/Table';
-import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
-
-const COLUMNS = [
-  { key: 'customer_name', label: 'Customer' },
-  { key: 'invoice_number', label: 'Invoice #' },
-  { key: 'due_date', label: 'Due Date', format: (value) => formatDate(value) },
-  { key: 'amount', label: 'Amount', format: (value) => formatMoney(value) },
-  { key: 'days_overdue', label: 'Days Overdue' },
-];
+import { formatMoney } from '../../../utils/formatMoney';
 
 export default function OverdueTable({ data, loading, error }) {
-  if (error) {
-    return (
-      <div className="p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
-        Error loading overdue invoices: {error.message}
-      </div>
-    );
-  }
-
-  return (
-    <Table
-      columns={COLUMNS}
-      data={data}
-      loading={loading}
-      emptyMessage="No overdue invoices."
-      rowKey="id"
-    />
-  );
+  const navigate = useNavigate();
+  if (error) return <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error.message}</p>;
+  return <Table
+    columns={[
+      { key: 'number', label: 'Invoice' },
+      { key: 'customer_name', label: 'Customer' },
+      { key: 'due_date', label: 'Due', format: (value) => formatDate(value) },
+      { key: 'balance', label: 'Balance', format: (value) => <span className="font-semibold text-red-600">{formatMoney(value)}</span> },
+      { key: 'status', label: 'Status', format: () => <Badge variant="danger">Overdue</Badge> },
+    ]}
+    data={data ?? []}
+    loading={loading}
+    emptyMessage="No overdue invoices."
+    rowKey="id"
+    onRowClick={(invoice) => navigate(`/invoices/${invoice.id}`)}
+  />;
 }

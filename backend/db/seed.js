@@ -163,9 +163,9 @@ async function seed() {
 
     await client.query('COMMIT');
 
-    console.log('\n======================================================');
+    console.log('\n              =====');
     console.log('   SEED COMPLETED SUCCESSFULLY! CREDENTIALS:');
-    console.log('======================================================');
+    console.log('              =====');
     console.log('ADMIN:');
     console.log('  Email:    admin@brightloop.test');
     console.log('  Password: Admin@1234');
@@ -179,7 +179,7 @@ async function seed() {
     console.log('  Email:    customer2@globex.test');
     console.log('  Password: Customer@1234');
     console.log('  Company:  Globex Inc');
-    console.log('======================================================\n');
+    console.log('              =====\n');
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('[Seed] Error seeding database:', error);

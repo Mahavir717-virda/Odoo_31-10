@@ -1,29 +1,34 @@
-import { useCallback } from 'react';
-
 import Table from '../../../components/ui/Table';
 import Badge from '../../../components/ui/Badge';
 import EmptyState from '../../../components/ui/EmptyState';
 import Spinner from '../../../components/ui/Spinner';
 import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
-import usePaginatedList from '../../../hooks/usePaginatedList';
-import { fetchPayments } from '../api';
+import { fetchInvoicePayments } from '../api';
+import { useEffect, useState } from 'react';
 
 const METHOD_VARIANTS = {
-  bank_transfer: 'info',
-  credit_card: 'success',
-  check: 'default',
-  cash: 'warning',
-  other: 'default',
+  BANK_TRANSFER: 'info',
+  CARD: 'success',
+  CHEQUE: 'default',
+  CASH: 'warning',
+  UPI: 'info',
+  ONLINE: 'success',
 };
 
 export default function PaymentHistory({ invoiceId }) {
-  const fetchList = useCallback(async (params) => {
-    const response = await fetchPayments({ ...params, invoice_id: invoiceId });
-    return response;
-  }, [invoiceId]);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const { data, loading, error } = usePaginatedList(fetchList, { page_size: 50 });
+  useEffect(() => {
+    let active = true;
+    fetchInvoicePayments(invoiceId)
+      .then((payments) => active && setData(Array.isArray(payments) ? payments : []))
+      .catch((loadError) => active && setError(loadError))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [invoiceId]);
 
   if (loading) {
     return (
@@ -48,7 +53,7 @@ export default function PaymentHistory({ invoiceId }) {
   return (
     <Table
       columns={[
-        { key: 'date', label: 'Date', format: (value) => formatDate(value) },
+        { key: 'payment_date', label: 'Date', format: (value) => formatDate(value) },
         { key: 'method', label: 'Method', format: (value) => (
           <Badge variant={METHOD_VARIANTS[value] ?? 'default'}>
             {value.charAt(0).toUpperCase() + value.slice(1).replace('_', ' ')}

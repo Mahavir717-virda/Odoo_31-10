@@ -1,48 +1,19 @@
 import Card from '../../../components/ui/Card';
-import Skeleton from './Skeleton';
 import { formatMoney } from '../../../utils/formatMoney';
+import Skeleton from './Skeleton';
 
-const CARDS = [
-  { key: 'active_subscriptions', label: 'Active Subscriptions', format: (value) => value ?? '-', type: 'number' },
-  { key: 'total_revenue', label: 'Total Revenue', format: formatMoney, type: 'money' },
-  { key: 'total_payments', label: 'Total Payments', format: formatMoney, type: 'money' },
-  { key: 'overdue_invoices', label: 'Overdue Invoices', format: (value) => value ?? '-', type: 'number' },
+const cards = [
+  { key: 'total_subscriptions', label: 'Total subscriptions', format: (value) => Number(value ?? 0).toLocaleString() },
+  { key: 'total_invoices', label: 'Total invoices', format: (value) => Number(value ?? 0).toLocaleString() },
+  { key: 'total_payments', label: 'Total payments', format: (value) => Number(value ?? 0).toLocaleString() },
+  { key: 'active_subscriptions', label: 'Active subscriptions', format: (value) => Number(value ?? 0).toLocaleString() },
+  { key: 'revenue_received', label: 'Revenue received', format: formatMoney },
+  { key: 'outstanding', label: 'Outstanding', format: formatMoney },
+  { key: 'overdue_amount', label: 'Overdue', format: formatMoney },
 ];
 
 export default function SummaryCards({ data, loading, error }) {
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((index) => (
-          <Card key={index} padded={false}>
-            <div className="p-6 space-y-4">
-              <Skeleton height="14" width="40%" className="mb-2" />
-              <Skeleton height="10" width="20%" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
-        Error loading summary: {error.message}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {CARDS.map((card) => (
-        <Card key={card.key}>
-          <p className="text-sm font-medium text-gray-500">{card.label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            {card.format(data?.[card.key])}
-          </p>
-        </Card>
-      ))}
-    </div>
-  );
+  if (loading) return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map((item) => <Card key={item.key}><Skeleton height="12" width="40%" /><div className="mt-4"><Skeleton height="24" width="65%" /></div></Card>)}</div>;
+  if (error) return <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error.message}</p>;
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map((item) => <Card key={item.key}><p className="text-sm font-medium text-gray-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-gray-900">{item.format(data?.[item.key])}</p>{item.key === 'overdue_amount' && <p className="mt-1 text-xs text-gray-500">{data?.overdue_count ?? 0} overdue invoices</p>}</Card>)}</div>;
 }

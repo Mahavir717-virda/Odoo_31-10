@@ -1,83 +1,23 @@
-import { MOCK_TEMPLATES, CUSTOMERS } from './mock';
-
-const API_DELAY = 600;
-
-const delay = () => new Promise((resolve) => setTimeout(resolve, API_DELAY));
-
-let templates = [...MOCK_TEMPLATES];
+import axiosClient from '../../api/axiosClient';
+import { getPayload, normalizeListResponse } from '../../api/featureUtils';
 
 export async function fetchTemplates(params = {}) {
-  await delay();
-  const { page = 1, page_size = 10, search = '' } = params;
-  const q = String(search).toLowerCase();
-
-  let filtered = templates.filter(
-    (t) =>
-      t.name.toLowerCase().includes(q) ||
-      t.customer_name.toLowerCase().includes(q) ||
-      t.plan.toLowerCase().includes(q) ||
-      t.payment_terms.toLowerCase().includes(q)
-  );
-
-  const total = filtered.length;
-  const start = (page - 1) * page_size;
-  const data = filtered.slice(start, start + page_size);
-
-  return { data, total, page, page_size };
+  const response = await axiosClient.get('/quotation-templates', { params });
+  return normalizeListResponse(response);
 }
 
 export async function getTemplate(id) {
-  await delay();
-  const template = templates.find((t) => t.id === id);
-  if (!template) {
-    throw new Error('Template not found');
-  }
-  return { data: template };
+  return getPayload(await axiosClient.get(`/quotation-templates/${id}`));
 }
 
 export async function createTemplate(payload) {
-  await delay();
-  const existing = templates.find((t) => t.name === payload.name);
-  if (existing) {
-    throw new Error('A template with this name already exists');
-  }
-  const now = new Date().toISOString().split('T')[0];
-  const customer = CUSTOMERS.find((c) => c.id === payload.customer_id);
-  const newTemplate = {
-    id: `qt_${templates.length + 1}`,
-    ...payload,
-    customer_name: customer ? customer.name : '',
-    created_at: now,
-    updated_at: now,
-  };
-  templates.push(newTemplate);
-  return { data: newTemplate };
+  return getPayload(await axiosClient.post('/quotation-templates', payload));
 }
 
 export async function updateTemplate(id, payload) {
-  await delay();
-  const index = templates.findIndex((t) => t.id === id);
-  if (index === -1) {
-    throw new Error('Template not found');
-  }
-  const now = new Date().toISOString().split('T')[0];
-  const customer = CUSTOMERS.find((c) => c.id === payload.customer_id);
-  const updated = {
-    ...templates[index],
-    ...payload,
-    customer_name: customer ? customer.name : templates[index].customer_name,
-    updated_at: now,
-  };
-  templates[index] = updated;
-  return { data: updated };
+  return getPayload(await axiosClient.put(`/quotation-templates/${id}`, payload));
 }
 
 export async function deleteTemplate(id) {
-  await delay();
-  const index = templates.findIndex((t) => t.id === id);
-  if (index === -1) {
-    throw new Error('Template not found');
-  }
-  templates.splice(index, 1);
-  return { data: { id } };
+  return getPayload(await axiosClient.delete(`/quotation-templates/${id}`));
 }

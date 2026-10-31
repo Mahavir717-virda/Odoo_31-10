@@ -1,96 +1,48 @@
-import { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { createElement, useEffect } from 'react';
+import { Route, Routes, useNavigate } from 'react-router-dom';
+import AppLayout from '../components/layout/AppLayout';
+import PageHeader from '../components/layout/PageHeader';
+import ProfileCard from '../features/portal/components/ProfileCard';
 import { DASHBOARD_ROUTES } from '../features/dashboard/routes';
+import DashboardPage from '../features/dashboard/pages/DashboardPage';
+import { INVOICES_ROUTES } from '../features/invoices/routes';
+import { PAYMENTS_ROUTES } from '../features/payments/routes';
 import { PORTAL_ROUTES } from '../features/portal/routes';
-import { SUBSCRIPTIONS_ROUTES } from '../features/subscriptions/routes';
 import { QUOTATION_TEMPLATES_ROUTES } from '../features/quotation-templates/routes';
+import { SUBSCRIPTIONS_ROUTES } from '../features/subscriptions/routes';
+import { useAuth } from '../context/AuthContext';
+import DiscountFormPage from '../features/discounts/pages/DiscountFormPage';
+import DiscountListPage from '../features/discounts/pages/DiscountListPage';
+import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
+import LoginPage from '../features/auth/pages/LoginPage';
+import RegisterPage from '../features/auth/pages/RegisterPage';
+import ResetPasswordPage from '../features/auth/pages/ResetPasswordPage';
+import PlanFormPage from '../features/plans/pages/PlanFormPage';
+import PlanListPage from '../features/plans/pages/PlanListPage';
+import ProductFormPage from '../features/products/pages/ProductFormPage';
+import ProductListPage from '../features/products/pages/ProductListPage';
+import StaffListPage from '../features/staff/pages/StaffListPage';
+import TaxListPage from '../features/taxes/pages/TaxListPage';
+import MySubscriptionsPage from '../features/portal/pages/MySubscriptionsPage';
+import MyInvoicesPage from '../features/portal/pages/MyInvoicesPage';
+import MyInvoiceDetailPage from '../features/portal/pages/MyInvoiceDetailPage';
+import Forbidden from '../pages/Forbidden';
+import NotFound from '../pages/NotFound';
+import ProtectedRoute from './ProtectedRoute';
+import RoleRedirect from './RoleRedirect';
 
 export const APP_ROUTES = [
   ...DASHBOARD_ROUTES,
   ...PORTAL_ROUTES,
   ...SUBSCRIPTIONS_ROUTES,
   ...QUOTATION_TEMPLATES_ROUTES,
+  ...INVOICES_ROUTES,
+  ...PAYMENTS_ROUTES,
 ];
-
-import ProtectedRoute from './ProtectedRoute';
-import RoleRedirect from './RoleRedirect';
-import AppLayout from '../components/layout/AppLayout';
-import PortalLayout from '../components/layout/PortalLayout';
-import PageHeader from '../components/layout/PageHeader';
-import Forbidden from '../pages/Forbidden';
-import NotFound from '../pages/NotFound';
-import { useAuth } from '../context/AuthContext';
-import ProfileCard from '../features/portal/components/ProfileCard';
-
-// Public Auth Pages
-import LoginPage from '../features/auth/pages/LoginPage';
-import RegisterPage from '../features/auth/pages/RegisterPage';
-import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
-import ResetPasswordPage from '../features/auth/pages/ResetPasswordPage';
-
-// FE1 Feature Pages
-import StaffListPage from '../features/staff/pages/StaffListPage';
-import ProductListPage from '../features/products/pages/ProductListPage';
-import ProductFormPage from '../features/products/pages/ProductFormPage';
-import PlanListPage from '../features/plans/pages/PlanListPage';
-import PlanFormPage from '../features/plans/pages/PlanFormPage';
-import TaxListPage from '../features/taxes/pages/TaxListPage';
-import DiscountListPage from '../features/discounts/pages/DiscountListPage';
-import DiscountFormPage from '../features/discounts/pages/DiscountFormPage';
-
-// Portal Pages (FE2)
-import MySubscriptionsPage from '../features/portal/pages/MySubscriptionsPage';
-import MyInvoicesPage from '../features/portal/pages/MyInvoicesPage';
-import MyInvoiceDetailPage from '../features/portal/pages/MyInvoiceDetailPage';
 
 const ADMIN_ROLES = ['ADMIN', 'admin'];
 const STAFF_AND_ADMIN_ROLES = ['ADMIN', 'admin', 'STAFF', 'staff'];
 const CUSTOMER_ROLES = ['CUSTOMER', 'customer'];
-
-const ROUTE_TITLES = {
-  '/login': 'Sign In',
-  '/register': 'Create Account',
-  '/forgot-password': 'Forgot Password',
-  '/reset-password': 'Reset Password',
-  '/dashboard': 'Dashboard',
-  '/staff': 'Staff Management',
-  '/products': 'Products & Catalog',
-  '/products/new': 'New Product',
-  '/plans': 'Subscription Plans',
-  '/plans/new': 'New Plan',
-  '/taxes': 'Tax Rates',
-  '/discounts': 'Discounts & Coupons',
-  '/discounts/new': 'New Discount',
-  '/portal': 'Customer Portal',
-  '/portal/subscriptions': 'My Subscriptions',
-  '/portal/invoices': 'My Invoices',
-  '/forbidden': 'Access Denied (403)',
-};
-
-function PageTitleSync() {
-  const location = useLocation();
-
-  useEffect(() => {
-    const pathname = location.pathname;
-    let title = ROUTE_TITLES[pathname];
-
-    if (!title) {
-      if (pathname.startsWith('/products/')) title = 'Product Details';
-      else if (pathname.startsWith('/plans/')) title = 'Plan Details';
-      else if (pathname.startsWith('/discounts/')) title = 'Discount Details';
-      else if (pathname.startsWith('/portal/invoices/')) title = 'Invoice Details';
-      else if (pathname.startsWith('/subscriptions')) title = 'Subscriptions';
-      else if (pathname.startsWith('/invoices')) title = 'Invoices';
-      else if (pathname.startsWith('/payments')) title = 'Payments';
-      else if (pathname.startsWith('/quotation-templates')) title = 'Quotation Templates';
-      else title = 'Odoo Subscriptions';
-    }
-
-    document.title = `${title} | Odoo Subscriptions`;
-  }, [location.pathname]);
-
-  return null;
-}
 
 // Shell Fallback for features in progress
 function ShellFeaturePlaceholder({ title, description }) {
@@ -172,244 +124,195 @@ function getDiscoveredRoutes() {
   }
 }
 
-export default function AppRoutes() {
-  const discoveredRoutes = getDiscoveredRoutes();
+const discoveredRoutes = getDiscoveredRoutes();
 
-  // Known routes already explicitly declared in AppLayout or PortalLayout
-  const knownPaths = new Set([
-    '/',
-    '/dashboard',
-    '/staff',
-    '/products',
-    '/products/new',
-    '/products/:id',
-    '/plans',
-    '/plans/new',
-    '/plans/:id',
-    '/taxes',
-    '/discounts',
-    '/discounts/new',
-    '/discounts/:id',
-    '/portal',
-    '/portal/subscriptions',
-    '/portal/invoices',
-    '/portal/invoices/:id',
-  ]);
+// Known routes already explicitly declared in AppLayout or PortalLayout
+const knownPaths = new Set([
+  '/',
+  '/dashboard',
+  '/staff',
+  '/products',
+  '/products/new',
+  '/products/:id',
+  '/plans',
+  '/plans/new',
+  '/plans/:id',
+  '/taxes',
+  '/discounts',
+  '/discounts/new',
+  '/discounts/:id',
+  '/portal',
+  '/portal/subscriptions',
+  '/portal/invoices',
+  '/portal/invoices/:id',
+]);
+
+export default function AppRoutes() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleNavigation = (event) => {
+      if (event.detail?.to) navigate(event.detail.to, { replace: event.detail.replace });
+    };
+    window.addEventListener('app:navigate', handleNavigation);
+    return () => window.removeEventListener('app:navigate', handleNavigation);
+  }, [navigate]);
 
   return (
-    <>
-      <PageTitleSync />
-      <Routes>
-        {/* Public Authentication Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/forbidden" element={<Forbidden />} />
 
-        {/* Global Fallback & Access Control Routes */}
-        <Route path="/forbidden" element={<Forbidden />} />
+      {/* Customer Portal Layout for CUSTOMER role */}
+      <Route element={<ProtectedRoute allowedRoles={CUSTOMER_ROLES} />}>
+        <Route path="/portal" element={<PortalOverview />} />
+        <Route path="/portal/subscriptions" element={<MySubscriptionsPage />} />
+        <Route path="/portal/invoices" element={<MyInvoicesPage />} />
+        <Route path="/portal/invoices/:id" element={<MyInvoiceDetailPage />} />
+      </Route>
 
-        {/* Customer Portal Layout for CUSTOMER role */}
-        <Route element={<ProtectedRoute allowedRoles={CUSTOMER_ROLES} />}>
-          <Route element={<PortalLayout />}>
-            <Route path="/portal" element={<PortalOverview />} />
-            <Route path="/portal/subscriptions" element={<MySubscriptionsPage />} />
-            <Route path="/portal/invoices" element={<MyInvoicesPage />} />
-            <Route path="/portal/invoices/:id" element={<MyInvoiceDetailPage />} />
-          </Route>
-        </Route>
+      {/* Authenticated Staff & Admin Application Shell */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<RoleRedirect />} />
 
-        {/* Authenticated Staff & Admin Application Shell */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppLayout />}>
-            {/* Default entry route redirects based on role */}
-            <Route path="/" element={<RoleRedirect />} />
+          {/* Admin & Staff: Dashboard */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Admin & Staff Protected Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ShellFeaturePlaceholder
-                    title="Dashboard"
-                    description="Performance metrics, revenue analytics, and overdue subscription tracking."
-                  />
-                </ProtectedRoute>
-              }
-            />
+          {/* Admin Only: Staff Management */}
+          <Route
+            path="/staff"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <StaffListPage />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Admin Only: Staff Management */}
-            <Route
-              path="/staff"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <StaffListPage />
-                </ProtectedRoute>
-              }
-            />
+          {/* Products: Staff can view; only Admin can create */}
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+                <ProductListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/new"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <ProductFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:id"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+                <ProductFormPage />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Products: Staff can view; only Admin can create */}
-            <Route
-              path="/products"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ProductListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/products/new"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <ProductFormPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/products/:id"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ProductFormPage />
-                </ProtectedRoute>
-              }
-            />
+          {/* Plans: Admin Only */}
+          <Route
+            path="/plans"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <PlanListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/plans/new"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <PlanFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/plans/:id"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <PlanFormPage />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Plans: Admin Only */}
-            <Route
-              path="/plans"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <PlanListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/plans/new"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <PlanFormPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/plans/:id"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <PlanFormPage />
-                </ProtectedRoute>
-              }
-            />
+          {/* Taxes: Admin Only */}
+          <Route
+            path="/taxes"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <TaxListPage />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Taxes: Admin Only */}
-            <Route
-              path="/taxes"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <TaxListPage />
-                </ProtectedRoute>
-              }
-            />
+          {/* Discounts: Staff can view; only Admin can create */}
+          <Route
+            path="/discounts"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+                <DiscountListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/discounts/new"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <DiscountFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/discounts/:id"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+                <DiscountFormPage />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Discounts: Admin Only */}
-            <Route
-              path="/discounts"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <DiscountListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/discounts/new"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <DiscountFormPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/discounts/:id"
-              element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
-                  <DiscountFormPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Subscriptions Module Shell Placeholders */}
-            <Route
-              path="/subscriptions"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ShellFeaturePlaceholder
-                    title="Subscriptions"
-                    description="Recurring subscription lifecycle and status management."
-                  />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Invoices Module Shell Placeholders */}
-            <Route
-              path="/invoices"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ShellFeaturePlaceholder
-                    title="Invoices"
-                    description="Customer invoices and payment status tracking."
-                  />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Payments Module Shell Placeholders */}
-            <Route
-              path="/payments"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ShellFeaturePlaceholder
-                    title="Payments"
-                    description="Transaction ledger and payment reconciliation."
-                  />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Quotation Templates Shell Placeholders */}
-            <Route
-              path="/quotation-templates"
-              element={
-                <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
-                  <ShellFeaturePlaceholder
-                    title="Quotation Templates"
-                    description="Standardized contract and quote blueprints."
-                  />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Dynamically Discovered Feature Routes from features */}
-            {discoveredRoutes
-              .filter((route) => !knownPaths.has(route.path))
-              .map((route) => (
-                <Route
-                  key={route.path}
-                  path={route.path}
-                  element={
-                    route.roles ? (
-                      <ProtectedRoute allowedRoles={route.roles}>{route.element}</ProtectedRoute>
-                    ) : (
-                      route.element
-                    )
-                  }
+          {/* Quotation Templates Shell Placeholders */}
+          <Route
+            path="/quotation-templates"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_AND_ADMIN_ROLES}>
+                <ShellFeaturePlaceholder
+                  title="Quotation Templates"
+                  description="Standardized contract and quote blueprints."
                 />
-              ))}
-          </Route>
-        </Route>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* 404 Catch-All Route */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
+          {/* Dynamically Discovered Feature Routes from features */}
+          {discoveredRoutes
+            .filter((route) => !knownPaths.has(route.path))
+            .map((route) => (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={<ProtectedRoute allowedRoles={route.roles}>{createElement(route.element)}</ProtectedRoute>}
+              />
+            ))}
+        </Route>
+      </Route>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }

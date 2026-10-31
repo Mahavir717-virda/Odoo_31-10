@@ -1,16 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import PageHeader from '../../../components/layout/PageHeader';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
+import Checkbox from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
-import Checkbox from '../../../components/ui/Checkbox';
 import Spinner from '../../../components/ui/Spinner';
-import ConfirmDialog from '../../../components/ui/ConfirmDialog';
-import { useToast } from '../../../components/ui/Toast';
-import { extractValidationErrors } from '../../../api/errorHelper';
-import { getDiscountById, createDiscount, updateDiscount } from '../api';
+import { getDiscountById, createDiscount, updateDiscount, getDiscountProducts } from '../api';
 import { getProducts } from '../../products/api';
 import { formatMoney } from '../../../utils/formatMoney';
 
@@ -27,9 +25,9 @@ function getDefaultEndDate() {
 export default function DiscountFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const isEditing = Boolean(id && id !== 'new');
-
+  const readOnly = isEditing && !isAdmin;
   const [name, setName] = useState('');
   const [type, setType] = useState('PERCENT');
   const [value, setValue] = useState('');
@@ -42,35 +40,50 @@ export default function DiscountFormPage() {
   const [scope, setScope] = useState('SUBSCRIPTION');
   const [productIds, setProductIds] = useState([]);
   const [isActive, setIsActive] = useState(true);
-
   const [products, setProducts] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [isDirty, setIsDirty] = useState(false);
-  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
 
-  // Unsaved changes warning
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = '';
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrors({});
+    try {
+      const [availableProducts, discount] = await Promise.all([
+        getDiscountProducts(),
+        isEditing ? getDiscountById(id) : Promise.resolve(null),
+      ]);
+      setProducts(availableProducts);
+      if (discount) {
+        setName(discount.name || '');
+        setType(discount.type || 'PERCENT');
+        setValue(String(discount.value ?? ''));
+        setMinPurchase(String(discount.min_purchase ?? 0));
+        setMinQuantity(String(discount.min_quantity ?? 0));
+        setStartDate(String(discount.start_date ?? getTodayStr()).slice(0, 10));
+        setEndDate(String(discount.end_date ?? getDefaultEndDate()).slice(0, 10));
+        const unlimited = discount.usage_limit === null || discount.usage_limit === undefined || discount.usage_limit === '';
+        setIsUnlimited(unlimited);
+        setUsageLimit(unlimited ? '' : String(discount.usage_limit));
+        setScope(discount.scope === 'PRODUCTS' ? 'PRODUCTS' : 'SUBSCRIPTION');
+        setProductIds(Array.isArray(discount.product_ids) ? discount.product_ids.map(Number) : []);
+        setIsActive(Boolean(discount.is_active));
       }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty]);
+      } catch (loadError) {
+        setErrors({ form: loadError?.message || 'Unable to load discount data.' });
+      } finally {
+      setLoading(false);
+    }
+  }, [id, isEditing]);
 
-  const markDirty = useCallback(() => {
-    setIsDirty(true);
-  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Load available products for PRODUCTS scope
   useEffect(() => {
     let mounted = true;
-    setLoadingProducts(true);
+    setLoading(true);
     getProducts({ page_size: 100 })
       .then((res) => {
         if (!mounted) return;
@@ -82,42 +95,14 @@ export default function DiscountFormPage() {
         setProducts([]);
       })
       .finally(() => {
-        if (mounted) setLoadingProducts(false);
+        if (mounted) setLoading(false);
       });
     return () => {
       mounted = false;
     };
   }, []);
 
-  // Load discount details if editing
-  useEffect(() => {
-    if (isEditing) {
-      setLoading(true);
-      getDiscountById(id)
-        .then((discount) => {
-          if (discount) {
-            setName(discount.name || '');
-            setType(discount.type === 'FIXED' ? 'FIXED' : 'PERCENT');
-            setValue(discount.value !== undefined ? String(discount.value) : '');
-            setMinPurchase(discount.min_purchase !== undefined ? String(discount.min_purchase) : '0');
-            setMinQuantity(discount.min_quantity !== undefined ? String(discount.min_quantity) : '0');
-            setStartDate(discount.start_date || getTodayStr());
-            setEndDate(discount.end_date || getDefaultEndDate());
-            const unlimited = discount.usage_limit === null || discount.usage_limit === undefined || discount.usage_limit === '';
-            setIsUnlimited(unlimited);
-            setUsageLimit(unlimited ? '' : String(discount.usage_limit));
-            setScope(discount.scope === 'PRODUCTS' ? 'PRODUCTS' : 'SUBSCRIPTION');
-            setProductIds(Array.isArray(discount.product_ids) ? discount.product_ids : []);
-            setIsActive(discount.is_active !== undefined ? Boolean(discount.is_active) : true);
-            setIsDirty(false);
-          }
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [id, isEditing]);
-
   const toggleProductId = (productId) => {
-    markDirty();
     setProductIds((prev) => {
       const numId = Number(productId);
       if (prev.includes(numId)) {
@@ -131,58 +116,43 @@ export default function DiscountFormPage() {
   };
 
   const validate = () => {
-    const errs = {};
-    if (!name.trim()) {
-      errs.name = 'Discount name / code is required.';
+    const nextErrors = {};
+    if (!name.trim()) nextErrors.name = 'Discount name / code is required.';
+    const numericValue = Number(value);
+    if (!value || !Number.isFinite(numericValue) || numericValue <= 0) {
+      nextErrors.value = 'Discount value must be greater than 0.';
+    } else if (type === 'PERCENT' && numericValue > 100) {
+      nextErrors.value = 'Percentage discount cannot exceed 100%.';
     }
-
-    const numVal = Number(value);
-    if (!value || isNaN(numVal) || numVal <= 0) {
-      errs.value = 'Discount value must be greater than 0.';
-    } else if (type === 'PERCENT' && numVal > 100) {
-      errs.value = 'Percentage discount cannot exceed 100%.';
+    if (!startDate) nextErrors.startDate = 'Start date is required.';
+    if (!endDate) nextErrors.endDate = 'End date is required.';
+    if (startDate && endDate && endDate < startDate) {
+      nextErrors.endDate = 'End date must be greater than or equal to start date.';
     }
-
-    if (Number(minPurchase) < 0) {
-      errs.minPurchase = 'Minimum purchase amount cannot be negative.';
+    if (Number(minPurchase) < 0 || !Number.isFinite(Number(minPurchase))) {
+      nextErrors.minPurchase = 'Minimum purchase amount cannot be negative.';
     }
-
-    if (Number(minQuantity) < 0) {
-      errs.minQuantity = 'Minimum quantity cannot be negative.';
+    if (!Number.isInteger(Number(minQuantity)) || Number(minQuantity) < 0) {
+      nextErrors.minQuantity = 'Minimum quantity cannot be negative.';
     }
-
-    if (!startDate) {
-      errs.startDate = 'Start date is required.';
-    }
-
-    if (!endDate) {
-      errs.endDate = 'End date is required.';
-    } else if (startDate && endDate < startDate) {
-      errs.endDate = 'End date must be greater than or equal to start date.';
-    }
-
     if (!isUnlimited) {
       const numLimit = parseInt(usageLimit, 10);
       if (!usageLimit || isNaN(numLimit) || numLimit <= 0) {
-        errs.usageLimit = 'Usage limit must be a positive number greater than 0.';
+        nextErrors.usageLimit = 'Usage limit must be a positive number greater than 0.';
       }
     }
-
     if (scope === 'PRODUCTS' && (!productIds || productIds.length === 0)) {
-      errs.productIds = 'Please select at least one product when scope is set to Products Only.';
+      nextErrors.productIds = 'Please select at least one product when scope is set to Products Only.';
     }
-
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) {
-      return;
-    }
+    setErrors({});
+    if (!validate()) return;
 
-    setSaving(true);
     const payload = {
       name: name.trim().toUpperCase(),
       type,
@@ -197,42 +167,18 @@ export default function DiscountFormPage() {
       is_active: isActive,
     };
 
+    setSaving(true);
     try {
-      if (isEditing) {
-        await updateDiscount(id, payload);
-        toast({
-          title: 'Discount Updated',
-          description: `Coupon "${payload.name}" updated successfully.`,
-          variant: 'success',
-        });
-      } else {
-        await createDiscount(payload);
-        toast({
-          title: 'Discount Created',
-          description: `Coupon "${payload.name}" created successfully.`,
-          variant: 'success',
-        });
-      }
-      setIsDirty(false);
+      if (isEditing) await updateDiscount(id, payload);
+      else await createDiscount(payload);
       navigate('/discounts');
     } catch (err) {
-      const { fieldErrors, generalMessage } = extractValidationErrors(err);
-      setErrors({ ...fieldErrors, form: generalMessage });
-      toast({
-        title: 'Save Failed',
-        description: generalMessage || 'Please review form errors.',
-        variant: 'danger',
-      });
+      setErrors((prev) => ({
+        ...prev,
+        form: err.response?.data?.message || err.message || 'Failed to save discount.',
+      }));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleCancelClick = () => {
-    if (isDirty) {
-      setShowDiscardDialog(true);
-    } else {
-      navigate('/discounts');
     }
   };
 
@@ -251,16 +197,9 @@ export default function DiscountFormPage() {
         description="Set up discount amounts, duration, eligibility rules, and redemption limits."
         breadcrumbs={[
           { label: 'Discounts', href: '/discounts' },
-          { label: isEditing ? 'Edit' : 'New' },
+          { label: isEditing ? (readOnly ? 'Details' : 'Edit') : 'New' },
         ]}
       />
-
-      {isDirty && (
-        <div className="mb-4 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center justify-between">
-          <span>You have unsaved changes in this discount form.</span>
-          <span className="font-semibold text-amber-900">Unsaved</span>
-        </div>
-      )}
 
       <Card className="max-w-4xl bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
         {errors.form && (
@@ -283,7 +222,6 @@ export default function DiscountFormPage() {
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value.toUpperCase());
-                    markDirty();
                     if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
                   }}
                   placeholder="e.g. WELCOME20, ENTERPRISE500"
@@ -301,7 +239,6 @@ export default function DiscountFormPage() {
                   value={type}
                   onChange={(e) => {
                     setType(e.target.value);
-                    markDirty();
                     if (errors.value) setErrors((prev) => ({ ...prev, value: null }));
                   }}
                   options={[
@@ -325,7 +262,6 @@ export default function DiscountFormPage() {
                   value={value}
                   onChange={(e) => {
                     setValue(e.target.value);
-                    markDirty();
                     if (errors.value) setErrors((prev) => ({ ...prev, value: null }));
                   }}
                   placeholder={type === 'PERCENT' ? '20' : '50.00'}
@@ -346,7 +282,6 @@ export default function DiscountFormPage() {
                   value={minPurchase}
                   onChange={(e) => {
                     setMinPurchase(e.target.value);
-                    markDirty();
                     if (errors.minPurchase) setErrors((prev) => ({ ...prev, minPurchase: null }));
                   }}
                   placeholder="0.00"
@@ -366,7 +301,6 @@ export default function DiscountFormPage() {
                   value={minQuantity}
                   onChange={(e) => {
                     setMinQuantity(e.target.value);
-                    markDirty();
                     if (errors.minQuantity) setErrors((prev) => ({ ...prev, minQuantity: null }));
                   }}
                   placeholder="0"
@@ -392,7 +326,6 @@ export default function DiscountFormPage() {
                   value={startDate}
                   onChange={(e) => {
                     setStartDate(e.target.value);
-                    markDirty();
                     if (errors.startDate || errors.endDate) {
                       setErrors((prev) => ({ ...prev, startDate: null, endDate: null }));
                     }
@@ -412,7 +345,6 @@ export default function DiscountFormPage() {
                   value={endDate}
                   onChange={(e) => {
                     setEndDate(e.target.value);
-                    markDirty();
                     if (errors.endDate) setErrors((prev) => ({ ...prev, endDate: null }));
                   }}
                   required
@@ -432,7 +364,6 @@ export default function DiscountFormPage() {
                   checked={isUnlimited}
                   onChange={(e) => {
                     setIsUnlimited(e.target.checked);
-                    markDirty();
                     if (errors.usageLimit) setErrors((prev) => ({ ...prev, usageLimit: null }));
                   }}
                   className="!mb-0"
@@ -451,7 +382,6 @@ export default function DiscountFormPage() {
                     value={usageLimit}
                     onChange={(e) => {
                       setUsageLimit(e.target.value);
-                      markDirty();
                       if (errors.usageLimit) setErrors((prev) => ({ ...prev, usageLimit: null }));
                     }}
                     placeholder="e.g. 100"
@@ -477,7 +407,6 @@ export default function DiscountFormPage() {
                 value={scope}
                 onChange={(e) => {
                   setScope(e.target.value);
-                  markDirty();
                   if (errors.productIds) setErrors((prev) => ({ ...prev, productIds: null }));
                 }}
                 options={[
@@ -505,12 +434,7 @@ export default function DiscountFormPage() {
                   </p>
                 )}
 
-                {loadingProducts ? (
-                  <div className="flex items-center justify-center p-6 text-gray-500">
-                    <Spinner size="sm" className="mr-2 text-indigo-600" />
-                    <span>Loading products list...</span>
-                  </div>
-                ) : products.length === 0 ? (
+                {products.length === 0 ? (
                   <p className="text-xs text-gray-500 italic p-3">No products available to select.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-2 bg-white rounded border border-gray-200">
@@ -554,44 +478,24 @@ export default function DiscountFormPage() {
               id="discount-is-active"
               label="Active (Discount is available for customers to use during its validity period)"
               checked={isActive}
-              onChange={(e) => {
-                setIsActive(e.target.checked);
-                markDirty();
-              }}
+              onChange={(e) => setIsActive(e.target.checked)}
               disabled={loading || saving}
             />
           </div>
 
           {/* Form Actions */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={handleCancelClick}
-            >
-              Cancel
-            </Button>
+            <Link to="/discounts">
+              <Button variant="outline" disabled={saving}>
+                Cancel
+              </Button>
+            </Link>
             <Button type="submit" variant="primary" loading={saving}>
               {isEditing ? 'Save Changes' : 'Create Discount'}
             </Button>
           </div>
         </form>
       </Card>
-
-      <ConfirmDialog
-        open={showDiscardDialog}
-        title="Discard Unsaved Changes?"
-        message="You have unsaved changes in this discount coupon form. Are you sure you want to discard them?"
-        confirmLabel="Discard & Leave"
-        confirmVariant="danger"
-        onConfirm={() => {
-          setShowDiscardDialog(false);
-          setIsDirty(false);
-          navigate('/discounts');
-        }}
-        onCancel={() => setShowDiscardDialog(false)}
-      />
     </div>
   );
 }

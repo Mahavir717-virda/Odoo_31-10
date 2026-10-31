@@ -1,144 +1,85 @@
-import { useCallback, useState } from 'react';
-
+import { useCallback, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import Badge from '../../../components/ui/Badge';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
-import SearchInput from '../../../components/ui/SearchInput';
-import Table from '../../../components/ui/Table';
+import Modal from '../../../components/ui/Modal';
 import Pagination from '../../../components/ui/Pagination';
-import Badge from '../../../components/ui/Badge';
-import { ToastProvider, useToast } from '../../../components/ui/Toast';
+import SearchInput from '../../../components/ui/SearchInput';
+import Select from '../../../components/ui/Select';
+import Table from '../../../components/ui/Table';
 import usePaginatedList from '../../../hooks/usePaginatedList';
-import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
+import { formatMoney } from '../../../utils/formatMoney';
 import { fetchPayments } from '../api';
+import { fetchInvoices } from '../../invoices/api';
 import RecordPaymentModal from '../components/RecordPaymentModal';
-import { INVOICES } from '../mock';
 
-const METHOD_VARIANTS = {
-  bank_transfer: 'info',
-  credit_card: 'success',
-  check: 'default',
-  cash: 'warning',
-  other: 'default',
-};
+const METHODS = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'ONLINE'];
 
 export default function PaymentListPage() {
-  const { toast } = useToast();
-  const [openRecord, setOpenRecord] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const navigate = useNavigate();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [invoicePickerOpen, setInvoicePickerOpen] = useState(false);
+  const [invoice, setInvoice] = useState(null);
+  const [availableInvoices, setAvailableInvoices] = useState([]);
+  const [invoiceLoadError, setInvoiceLoadError] = useState('');
+  const loadList = useCallback((params) => fetchPayments(params), []);
+  const list = usePaginatedList(loadList);
+  const visibleTotal = useMemo(() => list.data.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [list.data]);
 
-  const fetchList = useCallback(async (params) => {
-    const response = await fetchPayments(params);
-    return response;
-  }, []);
-
-  const {
-    data,
-    total,
-    page,
-    page_size,
-    search,
-    filters,
-    loading,
-    error,
-    set_page,
-    set_page_size,
-    set_search,
-    set_filters,
-    refresh,
-  } = usePaginatedList(fetchList, { page_size: 10 });
-
-  const handleRecordSuccess = () => {
-    setOpenRecord(false);
-    setSelectedInvoice(null);
-    refresh();
-    toast({ title: 'Recorded', description: 'Payment recorded successfully.', variant: 'success' });
+  const loadInvoicesForPayment = async () => {
+    try {
+      const response = await fetchInvoices({ page: 1, limit: 100, status: 'CONFIRMED' });
+      setAvailableInvoices(response.data.filter((item) => Number(item.balance) > 0));
+      setInvoiceLoadError('');
+      setInvoicePickerOpen(true);
+    } catch (error) {
+      setInvoiceLoadError(error.message || 'Unable to load invoices.');
+    }
   };
 
   const columns = [
-    { key: 'date', label: 'Date', format: (value) => formatDate(value) },
-    { key: 'invoice_id', label: 'Invoice', format: (value) => {
-      const invoice = INVOICES.find((inv) => inv.id === value);
-      return invoice ? invoice.invoice_number : value;
-    }},
-    { key: 'customer_name', label: 'Customer', format: (value, row) => {
-      const invoice = INVOICES.find((inv) => inv.id === row.invoice_id);
-      return invoice ? invoice.customer_name : '-';
-    }},
-    { key: 'method', label: 'Method', format: (value) => (
-      <Badge variant={METHOD_VARIANTS[value] ?? 'default'}>
-        {value.charAt(0).toUpperCase() + value.slice(1).replace('_', ' ')}
-      </Badge>
-    )},
+    { key: 'payment_date', label: 'Date', format: (value) => formatDate(value) },
+    { key: 'invoice_number', label: 'Invoice', render: (payment) => <Link className="font-medium text-indigo-600 hover:underline" to={`/invoices/${payment.invoice_id}`} onClick={(event) => event.stopPropagation()}>{payment.invoice_number ?? `Invoice ${payment.invoice_id}`}</Link> },
+    { key: 'customer_name', label: 'Customer' },
+    { key: 'method', label: 'Method', format: (value) => <Badge variant="info">{String(value).replaceAll('_', ' ')}</Badge> },
     { key: 'amount', label: 'Amount', format: (value) => formatMoney(value) },
-    { key: 'note', label: 'Note' },
+    { key: 'note', label: 'Note', format: (value) => value || '—' },
   ];
 
+  const refreshAfterPayment = () => {
+    setModalOpen(false);
+    setInvoice(null);
+    list.refresh();
+  };
+
   return (
-    <ToastProvider>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-            <p className="text-gray-600">View and record payments against invoices.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Select
-              value={selectedInvoice ? selectedInvoice.id : ''}
-              onChange={(event) => {
-                const id = event.target.value || undefined;
-                setSelectedInvoice(id ? INVOICES.find((inv) => inv.id === id) : null);
-              }}
-              placeholder="Select invoice"
-              options={INVOICES.map((inv) => ({ value: inv.id, label: `${inv.invoice_number} - ${inv.customer_name}` }))}
-            />
-            <Button onClick={() => setOpenRecord(true)} disabled={!selectedInvoice}>
-              Record Payment
-            </Button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
-            Error: {error.message}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <SearchInput
-            value={search}
-            onChange={set_search}
-            placeholder="Search payments..."
-          />
-          <Input label="Invoice ID" value={filters.invoice_id ?? ''} onChange={(event) =>
-            set_filters({ ...filters, invoice_id: event.target.value || undefined })
-          } />
-        </div>
-
-        <Table
-          columns={columns}
-          data={data}
-          loading={loading}
-          rowKey="id"
-          emptyMessage="No payments found."
-        />
-
-        <Pagination
-          page={page}
-          pageSize={page_size}
-          total={total}
-          onChange={set_page}
-          onPageSizeChange={set_page_size}
-        />
-
-        <RecordPaymentModal
-          invoice={selectedInvoice}
-          open={openRecord}
-          onClose={() => setOpenRecord(false)}
-          onSuccess={handleRecordSuccess}
-        />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-2xl font-bold text-gray-900">Payments</h1><p className="text-gray-600">View recorded invoice payments.</p></div>
+        <Button onClick={loadInvoicesForPayment}>Record payment</Button>
       </div>
-    </ToastProvider>
+      {invoiceLoadError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{invoiceLoadError}</p>}
+      {list.error && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{list.error.message}</p>}
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+        <SearchInput value={list.search} onChange={list.set_search} placeholder="Search invoice or customer..." className="lg:col-span-2" />
+        <Select id="payment-method-filter" label="Method" value={list.filters.method ?? ''} onChange={(event) => list.set_filters({ ...list.filters, method: event.target.value || undefined })} options={METHODS.map((method) => ({ value: method, label: method.replaceAll('_', ' ') }))} placeholder="All methods" />
+        <Input id="payment-from" label="From date" type="date" value={list.filters.from ?? ''} onChange={(event) => list.set_filters({ ...list.filters, from: event.target.value || undefined })} />
+        <Input id="payment-to" label="To date" type="date" value={list.filters.to ?? ''} onChange={(event) => list.set_filters({ ...list.filters, to: event.target.value || undefined })} />
+      </div>
+      <div className="text-right text-sm font-medium text-gray-700">Visible payments total: {formatMoney(visibleTotal)}</div>
+      <Table columns={columns} data={list.data} loading={list.loading} rowKey="id" emptyMessage="No payments found." onRowClick={(payment) => navigate(`/invoices/${payment.invoice_id}`)} />
+      <Pagination page={list.page} pageSize={list.page_size} total={list.total} onChange={list.set_page} onPageSizeChange={list.set_page_size} />
+      <Modal open={invoicePickerOpen} onClose={() => { setInvoicePickerOpen(false); setInvoice(null); }} title="Choose an invoice" className="max-w-xl">
+            <Select id="payment-invoice" label="Confirmed invoice" value={invoice ? String(invoice.id) : ''} onChange={(event) => setInvoice(availableInvoices.find((item) => String(item.id) === event.target.value) ?? null)} options={availableInvoices.map((item) => ({ value: String(item.id), label: `${item.number} · ${item.customer_name} · ${formatMoney(item.balance)} due` }))} placeholder="Select invoice" />
+            {availableInvoices.length === 0 && <p className="mb-3 text-sm text-gray-500">There are no confirmed invoices with an outstanding balance.</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setInvoicePickerOpen(false); setInvoice(null); }}>Cancel</Button>
+              <Button disabled={!invoice} onClick={() => { setInvoicePickerOpen(false); setModalOpen(true); }}>Continue</Button>
+            </div>
+      </Modal>
+      <RecordPaymentModal invoice={invoice} open={modalOpen} onClose={() => { setModalOpen(false); setInvoice(null); }} onSuccess={refreshAfterPayment} />
+    </div>
   );
 }

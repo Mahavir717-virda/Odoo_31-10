@@ -33,7 +33,7 @@ export default function usePaginatedList(fetchFn, { page_size = 10, enabled = tr
       try {
         const params = {
           page: currentPage,
-          page_size: currentPageSize,
+          limit: currentPageSize,
           search: currentSearch,
           ...currentFilters,
         };
@@ -43,8 +43,8 @@ export default function usePaginatedList(fetchFn, { page_size = 10, enabled = tr
           return;
         }
 
-        const items = response?.data ?? response ?? [];
-        const count = response?.total ?? items.length;
+        const items = Array.isArray(response?.data) ? response.data : response ?? [];
+        const count = response?.meta?.total ?? response?.total ?? items.length;
 
         if (requestId !== requestIdRef.current) {
           return;
@@ -109,8 +109,8 @@ export default function usePaginatedList(fetchFn, { page_size = 10, enabled = tr
   const setMeta = useCallback(
     (next) => {
       setPageState(1);
-      if (next.page_size) {
-        setPageSizeState(next.page_size);
+      if (next.pageSize ?? next.page_size ?? next.limit) {
+        setPageSizeState(next.pageSize ?? next.page_size ?? next.limit);
       }
       if (next.search !== undefined) {
         setSearchState(next.search);
@@ -127,14 +127,19 @@ export default function usePaginatedList(fetchFn, { page_size = 10, enabled = tr
     total,
     page,
     page_size: pageSize,
+    pageSize,
     search,
     filters,
     loading,
     error,
     set_page: setPage,
+    setPage,
     set_page_size: setPageSize,
+    setPageSize,
     set_search: setSearch,
+    setSearch,
     set_filters: setFilters,
+    setFilters,
     set_meta: setMeta,
     refresh,
     load,

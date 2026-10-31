@@ -63,9 +63,9 @@ export default function RevenueChart({ data, loading, error }) {
   return (
     <Card>
       <div className="p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue Trend (12 Months)</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">Monthly revenue received</h3>
         <div className="w-full" style={{ minHeight: height }}>
-          <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Revenue trend chart">
+          <svg width="100%" height="auto" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Monthly revenue received">
             <defs>
               <linearGradient id="revenueGradient" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.35" />

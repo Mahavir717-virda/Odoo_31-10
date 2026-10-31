@@ -3,13 +3,13 @@ import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
 import Checkbox from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
-import { extractValidationErrors } from '../../../api/errorHelper';
 
 export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
   const [name, setName] = useState('');
   const [ratePercent, setRatePercent] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -23,6 +23,7 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
       setIsActive(true);
     }
     setErrors({});
+    setFormError('');
   }, [tax, open]);
 
   const validate = () => {
@@ -45,15 +46,16 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
     if (!validate()) return;
 
     setSubmitting(true);
+    setFormError('');
     try {
       await onSubmit({
         name: name.trim(),
         rate_percent: Number(ratePercent),
         is_active: isActive,
       });
-    } catch (err) {
-      const { fieldErrors, generalMessage } = extractValidationErrors(err);
-      setErrors({ ...fieldErrors, form: generalMessage });
+      onClose();
+    } catch (error) {
+      setFormError(error?.message || 'Unable to save tax rate.');
     } finally {
       setSubmitting(false);
     }
@@ -65,13 +67,8 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
       onClose={onClose}
       title={tax ? 'Edit Tax Rate' : 'Add New Tax Rate'}
     >
-      {errors.form && (
-        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-          {errors.form}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{formError}</p>}
         <Input
           id="tax-name"
           label="Tax Name"
@@ -84,7 +81,6 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
           error={Boolean(errors.name)}
           errorMessage={errors.name}
           required
-          disabled={submitting}
         />
 
         <Input
@@ -103,25 +99,23 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
           error={Boolean(errors.rate_percent)}
           errorMessage={errors.rate_percent}
           required
-          disabled={submitting}
         />
 
         <div className="pt-2">
           <Checkbox
             id="tax-is-active"
-            label="Tax is active and available for product assignments"
+            label="Active tax rate (available for products & invoices)"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
-            disabled={submitting}
           />
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-          <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>
+        <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" loading={submitting}>
-            {tax ? 'Save Changes' : 'Create Tax Rate'}
+            {tax ? 'Save Changes' : 'Create Tax'}
           </Button>
         </div>
       </form>

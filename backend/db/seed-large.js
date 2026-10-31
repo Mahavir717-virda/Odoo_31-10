@@ -313,16 +313,16 @@ async function seedLarge() {
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
 
-    console.log('\n======================================================');
+    console.log('\n              =====');
     console.log(`   SEED-LARGE COMPLETED IN ${elapsed} SECONDS`);
-    console.log('======================================================');
+    console.log('              =====');
     console.log(`Users:               ${userCount.rows[0].count} (Customers added: 300)`);
     console.log(`Subscriptions:       ${subCount.rows[0].count} (Active: ${subActiveCount.rows[0].count} ~${((subActiveCount.rows[0].count / subCount.rows[0].count) * 100).toFixed(1)}%)`);
     console.log(`Subscription Lines:  ${subLineCount.rows[0].count}`);
     console.log(`Invoices:            ${invCount.rows[0].count}`);
     console.log(`Invoice Lines:       ${invLineCount.rows[0].count}`);
     console.log(`Payments:            ${payCount.rows[0].count}`);
-    console.log('======================================================\n');
+    console.log('              =====\n');
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('[Seed-Large] Error during seed-large:', error);

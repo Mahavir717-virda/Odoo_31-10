@@ -1,307 +1,240 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import axiosClient from '../../../api/axiosClient';
+import { normalizeListResponse } from '../../../api/featureUtils';
 import Button from '../../../components/ui/Button';
+import Card from '../../../components/ui/Card';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
+import Spinner from '../../../components/ui/Spinner';
 import Textarea from '../../../components/ui/Textarea';
 import { useToast } from '../../../components/ui/Toast';
-import useDebounce from '../../../hooks/useDebounce';
-import { formatMoney } from '../../../utils/formatMoney';
-import { getSubscriptionFromTemplate } from '../api';
-import { CUSTOMERS, PLANS, VARIANTS, calculateSubscription } from '../mock';
+import { getProducts } from '../../products/api';
+import { getPlans } from '../../plans/api';
+import { getTaxes } from '../../taxes/api';
+import { fetchTemplates, getTemplate } from '../../quotation-templates/api';
+import { createSubscription, createSubscriptionFromTemplate, getSubscription, updateSubscription, updateSubscriptionStatus } from '../api';
 
-const TAX_RATE = 0.18;
+const asArray = (response, key) => {
+  const body = response?.data ?? response;
+  return Array.isArray(body) ? body : body?.[key] ?? [];
+};
 
-export default function SubscriptionFormPage({ initialTemplate, onCancel, onSuccess }) {
+export default function SubscriptionFormPage() {
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const templateId = searchParams.get('template');
+  const isEditing = Boolean(id);
+  const navigate = useNavigate();
   const { toast } = useToast();
-
-  const [customer_id, setCustomerId] = useState(initialTemplate?.customer_id ?? '');
-  const [plan, setPlan] = useState(initialTemplate?.plan ?? 'starter');
-  const [start_date, setStartDate] = useState(initialTemplate?.start_date ?? '');
-  const [end_date, setEndDate] = useState(initialTemplate?.end_date ?? '');
-  const [status, setStatus] = useState(initialTemplate?.status ?? 'draft');
-  const [payment_status, setPaymentStatus] = useState(initialTemplate?.payment_status ?? 'unpaid');
-  const [notes, setNotes] = useState(initialTemplate?.notes ?? '');
-  const [lines, setLines] = useState(initialTemplate?.lines ?? []);
-  const [submitting, setSubmitting] = useState(false);
-  const [templateLoading, setTemplateLoading] = useState(Boolean(initialTemplate));
-  const templateFetchedRef = useRef(false);
-
-  const debouncedTaxRate = useDebounce(TAX_RATE, 300);
-
-  const { subtotal, tax_total, total } = useMemo(() => {
-    const calc = calculateSubscription(
-      lines.map((line) => ({
-        ...line,
-        tax_rate: debouncedTaxRate,
-      }))
-    );
-    return calc;
-  }, [lines, debouncedTaxRate]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
+  const [error, setError] = useState('');
+  const [customers, setCustomers] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [taxes, setTaxes] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [form, setForm] = useState({
+    customer_id: '', plan_id: '', start_date: new Date().toISOString().slice(0, 10),
+    expiry_date: '', payment_terms_days: 15, notes: '', lines: [],
+  });
 
   useEffect(() => {
-    if (!initialTemplate || templateFetchedRef.current) {
-      return;
-    }
-    templateFetchedRef.current = true;
-    setTemplateLoading(true);
-    getSubscriptionFromTemplate(initialTemplate.id)
-      .then((response) => {
-        const template = response.data;
-        setCustomerId(template.customer_id);
-        setPlan(template.plan);
-        setNotes(template.notes ?? '');
-        setLines(
-          template.lines.map((line) => ({
-            id: `line_${Date.now()}-${Math.random()}`,
-            product: line.product,
-            variant: line.variant,
-            quantity: line.quantity,
-            unit_price: line.unit_price,
-            tax_rate: line.tax_rate,
-          }))
-        );
-      })
-      .catch((err) => {
-        toast({ title: 'Error', description: err.message || 'Failed to load template.', variant: 'danger' });
-      })
-      .finally(() => setTemplateLoading(false));
-  }, [initialTemplate, toast]);
-
-  const handleAddLine = () => {
-    setLines([
-      ...lines,
-      {
-        id: `line_${Date.now()}`,
-        product: '',
-        variant: '',
-        quantity: 1,
-        unit_price: 0,
-        tax_rate: TAX_RATE,
-      },
-    ]);
-  };
-
-  const handleRemoveLine = (index) => {
-    setLines(lines.filter((_, i) => i !== index));
-  };
-
-  const handleUpdateLine = (index, field, value) => {
-    const next = [...lines];
-    next[index] = { ...next[index], [field]: value };
-    setLines(next);
-  };
-
-  const handleSave = async (event) => {
-    event.preventDefault();
-    if (!customer_id || !start_date || !end_date) {
-      toast({ title: 'Validation Error', description: 'Customer, start date, and end date are required.', variant: 'danger' });
-      return;
-    }
-    if (lines.length === 0) {
-      toast({ title: 'Validation Error', description: 'At least one product line is required.', variant: 'danger' });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const newSubscription = {
-        id: `sub_${Date.now()}`,
-        customer_id,
-        plan,
-        status,
-        start_date,
-        end_date,
-        next_billing_date: start_date,
-        amount: total,
-        payment_status,
-        template_id: initialTemplate?.id ?? null,
-        lines,
-        subtotal,
-        tax_total,
-        total,
-        created_at: new Date().toISOString().split('T')[0],
-        updated_at: new Date().toISOString().split('T')[0],
-      };
-      toast({ title: 'Created', description: 'Subscription created successfully.', variant: 'success' });
-      if (onSuccess) {
-        onSuccess(newSubscription);
+    let active = true;
+    Promise.all([
+      axiosClient.get('/users', { params: { page: 1, limit: 100, role: 'CUSTOMER' } }),
+      getPlans({ page: 1, limit: 100, status: 'ACTIVE' }),
+      getProducts({ page: 1, limit: 100, is_active: true }),
+      getTaxes({ page: 1, limit: 100, is_active: true }),
+      fetchTemplates({ page: 1, limit: 100, is_active: true }),
+      isEditing ? getSubscription(id) : Promise.resolve(null),
+      templateId ? getTemplate(templateId) : Promise.resolve(null),
+    ]).then(([customerResponse, planResponse, productResponse, taxResponse, templateResponse, subscription, selectedTemplate]) => {
+      if (!active) return;
+      setCustomers(normalizeListResponse(customerResponse).data);
+      setPlans(asArray(planResponse, 'plans'));
+      setProducts(asArray(productResponse, 'products'));
+      setTaxes(asArray(taxResponse, 'taxes'));
+      setTemplates(normalizeListResponse(templateResponse).data);
+      if (subscription) {
+        const status = String(subscription.status).toUpperCase();
+        if (!['DRAFT', 'QUOTATION'].includes(status)) {
+          setCanEdit(false);
+          setError('Only draft and quotation subscriptions can be edited.');
+        }
+        setForm({
+          customer_id: String(subscription.customer_id ?? ''),
+          plan_id: String(subscription.plan_id ?? ''),
+          start_date: String(subscription.start_date ?? '').slice(0, 10),
+          expiry_date: subscription.expiry_date ? String(subscription.expiry_date).slice(0, 10) : '',
+          payment_terms_days: subscription.payment_terms_days ?? 15,
+          notes: subscription.notes ?? '',
+          lines: (subscription.lines ?? []).map((line) => ({
+            product_id: String(line.product_id),
+            variant_id: line.variant_id ? String(line.variant_id) : '',
+            quantity: line.quantity ?? 1,
+            tax_id: line.tax_id ? String(line.tax_id) : '',
+            description: line.description ?? '',
+          })),
+        });
+      } else if (selectedTemplate) {
+        const template = selectedTemplate;
+        setForm((current) => ({
+          ...current,
+          plan_id: String(template.plan_id ?? ''),
+          payment_terms_days: template.payment_terms_days ?? 15,
+          lines: (template.lines ?? []).map((line) => ({
+            product_id: String(line.product_id),
+            variant_id: line.variant_id ? String(line.variant_id) : '',
+            quantity: line.quantity ?? 1,
+            tax_id: line.tax_id ? String(line.tax_id) : '',
+          })),
+        }));
       }
-    } catch (err) {
-      toast({ title: 'Error', description: err.message || 'Failed to create subscription.', variant: 'danger' });
+    }).catch((loadError) => {
+      if (active) setError(loadError.message || 'Unable to load subscription form data.');
+    }).finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [id, isEditing, templateId]);
+
+  const selectedPlan = plans.find((plan) => String(plan.id) === String(form.plan_id));
+  const totalQuantity = form.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+  const totals = useMemo(() => form.lines.reduce((sum, line) => {
+    const product = products.find((item) => String(item.id) === String(line.product_id));
+    const variant = product?.variants?.find((item) => String(item.id) === String(line.variant_id));
+    const tax = taxes.find((item) => String(item.id) === String(line.tax_id));
+    const amount = (Number(product?.sales_price ?? 0) + Number(variant?.extra_price ?? 0)) * Number(line.quantity || 0);
+    return sum + amount + amount * Number(tax?.rate_percent ?? 0) / 100;
+  }, 0), [form.lines, products, taxes]);
+
+  const updateLine = (index, key, value) => setForm((current) => ({
+    ...current,
+    lines: current.lines.map((line, lineIndex) => lineIndex === index
+      ? { ...line, [key]: value, ...(key === 'product_id' ? { variant_id: '' } : {}) }
+      : line),
+  }));
+
+  const save = async (event, makeQuotation = false) => {
+    event.preventDefault();
+    if (!form.customer_id || !form.plan_id || !form.start_date || form.lines.length === 0) {
+      setError('Customer, plan, start date, and at least one product line are required.');
+      return;
+    }
+    if (form.expiry_date && form.expiry_date < form.start_date) {
+      setError('Expiry date cannot be earlier than the start date.');
+      return;
+    }
+    if (selectedPlan && totalQuantity < Number(selectedPlan.min_quantity ?? 1)) {
+      setError(`The selected plan requires a minimum quantity of ${selectedPlan.min_quantity}.`);
+      return;
+    }
+    setSaving(true);
+    setError('');
+    const lines = form.lines.map((line) => ({
+        product_id: Number(line.product_id),
+        variant_id: line.variant_id ? Number(line.variant_id) : null,
+        quantity: Number(line.quantity),
+        tax_id: line.tax_id ? Number(line.tax_id) : null,
+        description: line.description || null,
+      }));
+    const payload = isEditing
+      ? {
+          expiry_date: form.expiry_date || null,
+          payment_terms_days: Number(form.payment_terms_days),
+          notes: form.notes || null,
+          lines,
+        }
+      : {
+          customer_id: Number(form.customer_id),
+          plan_id: Number(form.plan_id),
+          start_date: form.start_date,
+          expiry_date: form.expiry_date || null,
+          payment_terms_days: Number(form.payment_terms_days),
+          notes: form.notes || null,
+          lines,
+        };
+    try {
+      let saved;
+      if (isEditing) {
+        saved = await updateSubscription(id, payload);
+      } else if (templateId) {
+        saved = await createSubscriptionFromTemplate(templateId, {
+          customer_id: Number(form.customer_id),
+          start_date: form.start_date,
+        });
+        saved = await updateSubscription(saved.id, {
+          expiry_date: form.expiry_date || null,
+          payment_terms_days: Number(form.payment_terms_days),
+          notes: form.notes || null,
+          lines,
+        });
+      } else {
+        saved = await createSubscription(payload);
+      }
+      if (makeQuotation && String(saved.status).toUpperCase() === 'DRAFT') {
+        saved = await updateSubscriptionStatus(saved.id, 'QUOTATION');
+      }
+      toast({ title: isEditing ? 'Updated' : 'Created', description: 'Subscription saved successfully.', variant: 'success' });
+      navigate(`/subscriptions/${saved.id}`);
+    } catch (saveError) {
+      setError(saveError.message || 'Unable to save the subscription.');
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
+
+  if (loading) return <div className="flex min-h-64 items-center justify-center"><Spinner /></div>;
+  if (isEditing && !canEdit) {
+    return <div className="space-y-4"><p className="rounded border border-amber-200 bg-amber-50 p-3 text-amber-900" role="alert">{error}</p><Button variant="outline" onClick={() => navigate(`/subscriptions/${id}`)}>Return to subscription</Button></div>;
+  }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {initialTemplate ? 'Create from Template' : 'Create Subscription'}
-        </h1>
-        {templateLoading && <span className="text-sm text-gray-500 italic">Loading template...</span>}
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div>
+        <Link to="/subscriptions" className="text-sm text-indigo-600 hover:underline">Back to subscriptions</Link>
+        <h1 className="mt-2 text-2xl font-bold text-gray-900">{isEditing ? 'Edit subscription' : templateId ? 'Create from template' : 'Create subscription'}</h1>
       </div>
-
-      <form onSubmit={handleSave} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            id="customer_id"
-            label="Customer"
-            value={customer_id}
-            onChange={setCustomerId}
-            required
-            disabled={Boolean(initialTemplate)}
-            options={CUSTOMERS.map((c) => ({ value: c.id, label: c.name }))}
-          />
-          <Select
-            id="plan"
-            label="Plan"
-            value={plan}
-            onChange={setPlan}
-            required
-            disabled={Boolean(initialTemplate)}
-            options={PLANS.map((p) => ({ value: p.value, label: `${p.label} (${formatMoney(p.base_price)})` }))}
-          />
-          <Input
-            id="start_date"
-            label="Start Date"
-            type="date"
-            value={start_date}
-            onChange={(event) => setStartDate(event.target.value)}
-            required
-          />
-          <Input
-            id="end_date"
-            label="End Date"
-            type="date"
-            value={end_date}
-            onChange={(event) => setEndDate(event.target.value)}
-            required
-          />
-          <Select
-            id="status"
-            label="Status"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: 'draft', label: 'Draft' },
-              { value: 'quotation', label: 'Quotation' },
-            ]}
-          />
-          <Select
-            id="payment_status"
-            label="Payment Status"
-            value={payment_status}
-            onChange={setPaymentStatus}
-            options={[
-              { value: 'unpaid', label: 'Unpaid' },
-              { value: 'paid', label: 'Paid' },
-              { value: 'partial', label: 'Partial' },
-            ]}
-          />
-        </div>
-
-        <Textarea
-          id="notes"
-          label="Notes"
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          rows={3}
-        />
-
-        <div className="border-t pt-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Product Lines</h3>
-          {lines.map((line, index) => (
-            <div key={line.id} className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-3 items-end">
-              <Input
-                id={`line_product_${index}`}
-                label="Product"
-                value={line.product}
-                onChange={(event) => handleUpdateLine(index, 'product', event.target.value)}
-                disabled={Boolean(initialTemplate)}
-              />
-              <Select
-                id={`line_variant_${index}`}
-                label="Variant"
-                value={line.variant}
-                onChange={(event) => handleUpdateLine(index, 'variant', event.target.value)}
-                options={VARIANTS[plan]?.map((v) => ({ value: v.value, label: v.label })) ?? []}
-                disabled={Boolean(initialTemplate)}
-              />
-              <Input
-                id={`line_quantity_${index}`}
-                label="Qty"
-                type="number"
-                min="1"
-                value={String(line.quantity)}
-                onChange={(event) => handleUpdateLine(index, 'quantity', Number(event.target.value))}
-                disabled={Boolean(initialTemplate)}
-              />
-              <Input
-                id={`line_price_${index}`}
-                label="Unit Price"
-                type="number"
-                step="0.01"
-                value={String(line.unit_price)}
-                onChange={(event) => handleUpdateLine(index, 'unit_price', Number(event.target.value))}
-                disabled={Boolean(initialTemplate)}
-              />
-              <Input
-                id={`line_tax_${index}`}
-                label="Tax %"
-                type="number"
-                step="0.01"
-                value={String((line.tax_rate || 0) * 100)}
-                onChange={(event) => handleUpdateLine(index, 'tax_rate', Number(event.target.value) / 100)}
-                disabled={Boolean(initialTemplate)}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => handleRemoveLine(index)}
-                className="h-10 px-3"
-                disabled={Boolean(initialTemplate)}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-          {!initialTemplate && (
-            <Button type="button" variant="outline" onClick={handleAddLine}>
-              Add Line
-            </Button>
+      {error && <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</p>}
+      {selectedPlan && totalQuantity < Number(selectedPlan.min_quantity ?? 1) && <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This plan requires at least {selectedPlan.min_quantity} total line item units.</p>}
+      <Card>
+        <form onSubmit={(event) => save(event)} className="space-y-5">
+          {!isEditing && (
+            <Select id="source-template" label="Start from template (optional)" value={templateId ?? ''} onChange={(event) => navigate(event.target.value ? `/subscriptions/new?template=${event.target.value}` : '/subscriptions/new')} options={templates.map((template) => ({ value: String(template.id), label: template.name }))} placeholder="Blank subscription" />
           )}
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-600">Subtotal</span>
-            <span className="font-medium">{formatMoney(subtotal)}</span>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select id="subscription-customer" label="Customer" value={form.customer_id} onChange={(event) => setForm({ ...form, customer_id: event.target.value })} options={customers.map((customer) => ({ value: String(customer.id), label: `${customer.name} (${customer.email})` }))} placeholder="Select customer" required disabled={isEditing} />
+            <Select id="subscription-plan" label="Plan" value={form.plan_id} onChange={(event) => setForm({ ...form, plan_id: event.target.value })} options={plans.map((plan) => ({ value: String(plan.id), label: `${plan.name} (min. ${plan.min_quantity ?? 1})` }))} placeholder="Select plan" required disabled={isEditing || Boolean(templateId)} />
+            <Input id="subscription-start" label="Start date" type="date" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} required disabled={isEditing} />
+            <Input id="subscription-expiry" label="Expiry date (optional)" type="date" min={form.start_date} value={form.expiry_date} onChange={(event) => setForm({ ...form, expiry_date: event.target.value })} />
+            <Input id="subscription-terms" label="Payment terms (days)" type="number" min="0" value={form.payment_terms_days} onChange={(event) => setForm({ ...form, payment_terms_days: event.target.value })} />
+            <Textarea id="subscription-notes" label="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={2} />
           </div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-600">Tax</span>
-            <span className="font-medium">{formatMoney(tax_total)}</span>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between"><h2 className="font-semibold text-gray-900">Product lines</h2><Button type="button" variant="outline" onClick={() => setForm({ ...form, lines: [...form.lines, { product_id: '', variant_id: '', quantity: 1, tax_id: '', description: '' }] })}>Add line</Button></div>
+            {form.lines.map((line, index) => {
+              const product = products.find((item) => String(item.id) === String(line.product_id));
+              return (
+                <div key={index} className="grid items-end gap-3 rounded border border-gray-200 p-3 sm:grid-cols-6">
+                  <Select id={`sub-product-${index}`} label="Product" value={line.product_id} onChange={(event) => updateLine(index, 'product_id', event.target.value)} options={products.map((item) => ({ value: String(item.id), label: item.name }))} placeholder="Select product" required />
+                  <Select id={`sub-variant-${index}`} label="Variant" value={line.variant_id} onChange={(event) => updateLine(index, 'variant_id', event.target.value)} options={(product?.variants ?? []).map((variant) => ({ value: String(variant.id), label: `${variant.attribute}: ${variant.value}` }))} placeholder="No variant" />
+                  <Input id={`sub-quantity-${index}`} label="Quantity" type="number" min="1" step="1" value={line.quantity} onChange={(event) => updateLine(index, 'quantity', event.target.value)} required />
+                  <Select id={`sub-tax-${index}`} label="Tax" value={line.tax_id} onChange={(event) => updateLine(index, 'tax_id', event.target.value)} options={taxes.map((tax) => ({ value: String(tax.id), label: `${tax.name} (${tax.rate_percent}%)` }))} placeholder="Product default" />
+                  <Input id={`sub-description-${index}`} label="Description" value={line.description ?? ''} onChange={(event) => updateLine(index, 'description', event.target.value)} />
+                  <Button type="button" variant="danger" onClick={() => setForm({ ...form, lines: form.lines.filter((_, lineIndex) => lineIndex !== index) })}>Remove</Button>
+                </div>
+              );
+            })}
+            <p className="text-right font-semibold text-gray-800">Estimated total: {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(totals)}</p>
+          </section>
+          <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate('/subscriptions')}>Cancel</Button>
+            <Button type="submit" disabled={saving} loading={saving}>{isEditing ? 'Save changes' : 'Save draft'}</Button>
+            {!isEditing && <Button type="button" disabled={saving} onClick={(event) => save(event, true)}>Create quotation</Button>}
           </div>
-          <div className="flex justify-between text-sm font-bold">
-            <span className="text-gray-900">Total</span>
-            <span className="text-indigo-600">{formatMoney(total)}</span>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={submitting}
-            loading={submitting}
-          >
-            {initialTemplate ? 'Create Subscription' : 'Save Subscription'}
-          </Button>
-        </div>
-      </form>
+        </form>
+      </Card>
     </div>
   );
 }

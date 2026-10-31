@@ -4,6 +4,7 @@ export const DASHBOARD_ROUTES = [
   {
     path: '/dashboard',
     element: DashboardPage,
+    roles: ['ADMIN', 'STAFF'],
   },
 ];
 

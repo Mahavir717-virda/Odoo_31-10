@@ -24,12 +24,12 @@ export default function SubscriptionLines({ lines = [] }) {
       <tbody>
         {lines.map((line) => (
           <tr key={line.id} className="bg-white">
-            <td className="px-3 py-2 text-gray-900">{line.product}</td>
-            <td className="px-3 py-2 text-gray-900">{line.variant}</td>
+            <td className="px-3 py-2 text-gray-900">{line.product_name ?? line.description ?? line.product ?? '—'}</td>
+            <td className="px-3 py-2 text-gray-900">{line.variant_label ?? line.variant ?? '—'}</td>
             <td className="px-3 py-2 text-gray-900">{line.quantity}</td>
             <td className="px-3 py-2 text-right text-gray-900">{formatMoney(line.unit_price || 0)}</td>
-            <td className="px-3 py-2 text-right text-gray-900">{formatMoney(line.tax_amount || 0)}</td>
-            <td className="px-3 py-2 text-right text-gray-900 font-medium">{formatMoney(line.total || 0)}</td>
+            <td className="px-3 py-2 text-right text-gray-900">{Number(line.tax_rate ?? line.tax_rate_percent ?? 0)}%</td>
+            <td className="px-3 py-2 text-right text-gray-900 font-medium">{formatMoney(Number(line.amount ?? line.total ?? 0) + Number(line.tax_amount ?? 0))}</td>
           </tr>
         ))}
         <tr className="bg-gray-50">
@@ -38,7 +38,7 @@ export default function SubscriptionLines({ lines = [] }) {
           </td>
           <td className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
             {formatMoney(
-              lines.reduce((sum, line) => sum + (line.total || 0), 0)
+              lines.reduce((sum, line) => sum + Number(line.amount ?? line.total ?? 0) + Number(line.tax_amount ?? 0), 0)
             )}
           </td>
         </tr>

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import PageHeader from '../../../components/layout/PageHeader';
 import Table from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -8,9 +9,7 @@ import SearchInput from '../../../components/ui/SearchInput';
 import Select from '../../../components/ui/Select';
 import Pagination from '../../../components/ui/Pagination';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
-import { useToast } from '../../../components/ui/Toast';
 import usePaginatedList from '../../../hooks/usePaginatedList';
-import useDebounce from '../../../hooks/useDebounce';
 import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
 import UsageProgress from '../components/UsageProgress';
@@ -18,49 +17,47 @@ import { getDiscounts, deleteDiscount } from '../api';
 
 export default function DiscountListPage() {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { isAdmin } = useAuth();
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [actionError, setActionError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const [selectedScope, setSelectedScope] = useState('');
   const [selectedState, setSelectedState] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const [searchInput, setSearchInput] = useState('');
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({});
 
   const {
     data,
     total,
     page,
-    page_size: pageSize,
+    pageSize,
     loading,
     error,
-    set_page: setPage,
-    set_search: setSearch,
-    set_filters: setFilters,
+    setPage,
+    setSearch: setPaginatedSearch,
+    setFilters: setPaginatedFilters,
     load,
   } = usePaginatedList(getDiscounts);
 
-  useEffect(() => {
-    setSearch(debouncedSearch);
-  }, [debouncedSearch, setSearch]);
+  const updateFilter = (key, value) => {
+    const next = { ...filters };
+    if (value) next[key] = value;
+    else delete next[key];
+    setFilters(next);
+    setPaginatedFilters(next);
+  };
 
   const handleScopeChange = (e) => {
     const val = e.target.value;
     setSelectedScope(val);
-    setFilters({
-      scope: val || undefined,
-      state: selectedState || undefined,
-    });
+    updateFilter('scope', val || undefined);
   };
 
   const handleStateChange = (e) => {
     const val = e.target.value;
     setSelectedState(val);
-    setFilters({
-      scope: selectedScope || undefined,
-      state: val || undefined,
-    });
+    updateFilter('state', val || undefined);
   };
 
   const handleDeleteClick = (e, row) => {
@@ -73,19 +70,8 @@ export default function DiscountListPage() {
     setDeleting(true);
     try {
       await deleteDiscount(deleteTarget.id);
-      toast({
-        title: 'Discount Deleted',
-        description: `Coupon "${deleteTarget.name}" has been deleted.`,
-        variant: 'success',
-      });
       setDeleteTarget(null);
       load();
-    } catch (err) {
-      toast({
-        title: 'Delete Failed',
-        description: err.message || 'Failed to delete discount.',
-        variant: 'danger',
-      });
     } finally {
       setDeleting(false);
     }
@@ -203,7 +189,7 @@ export default function DiscountListPage() {
     },
     {
       key: 'validity',
-      label: 'Validity',
+      label: 'Valid dates',
       render: (row) => (
         <div className="text-xs text-gray-600">
           <div>From: <span className="text-gray-800 font-medium">{formatDate(row.start_date)}</span></div>
@@ -223,20 +209,16 @@ export default function DiscountListPage() {
       label: 'Status',
       render: (row) => renderStatusBadges(row),
     },
-    {
+    ...(isAdmin ? [{
       key: 'actions',
       label: 'Actions',
       render: (row) => (
         <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="ghost" onClick={() => navigate(`/discounts/${row.id}`)}>
-            Edit
-          </Button>
-          <Button size="sm" variant="danger" onClick={(e) => handleDeleteClick(e, row)}>
-            Delete
-          </Button>
+          <Button size="sm" variant="ghost" onClick={() => navigate(`/discounts/${row.id}`)}>Edit</Button>
+          <Button size="sm" variant="danger" onClick={(e) => handleDeleteClick(e, row)}>Delete</Button>
         </div>
       ),
-    },
+    }] : []),
   ];
 
   return (
@@ -251,29 +233,19 @@ export default function DiscountListPage() {
         }
       />
 
-      {/* Error state banner with retry */}
-      {error && (
-        <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm flex items-center justify-between text-red-800">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span>{error.message || 'Failed to load discounts.'}</span>
-          </div>
-          <Button size="sm" variant="outline" onClick={load}>
-            Retry
-          </Button>
-        </div>
-      )}
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
-        {/* Filters and Search Bar */}
+        {(error || actionError) && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+            <span>{actionError || error?.message}</span>
+            <Button size="sm" variant="outline" onClick={() => { setActionError(''); load(); }}>Retry</Button>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 items-end">
           <div>
             <span className="block text-xs font-medium text-gray-700 mb-1">Search</span>
             <SearchInput
-              value={searchInput}
-              onChange={(val) => setSearchInput(val)}
+              value={search}
+              onChange={(val) => { setSearch(val); setPaginatedSearch(val); }}
               placeholder="Search discounts by name or code..."
             />
           </div>
@@ -311,26 +283,13 @@ export default function DiscountListPage() {
           </div>
         </div>
 
-        {/* Horizontally scrollable table */}
-        <div className="w-full overflow-x-auto">
-          <Table
-            columns={columns}
-            data={data}
-            loading={loading}
-            emptyMessage={
-              <div className="py-8 text-center">
-                <p className="text-gray-500 font-medium">No discounts found matching your criteria.</p>
-                <p className="text-xs text-gray-400 mt-1">Create a promotional campaign or adjust search filters.</p>
-                <Link to="/discounts/new">
-                  <Button size="sm" variant="outline" className="mt-3">
-                    + Create Discount
-                  </Button>
-                </Link>
-              </div>
-            }
-            onRowClick={(row) => navigate(`/discounts/${row.id}`)}
-          />
-        </div>
+        <Table
+          columns={columns}
+          data={data}
+          loading={loading}
+          emptyMessage="No discounts found matching your criteria."
+          onRowClick={(row) => navigate(`/discounts/${row.id}`)}
+        />
 
         <div className="mt-4 pt-3 border-t border-gray-100">
           <Pagination
@@ -342,7 +301,6 @@ export default function DiscountListPage() {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete Discount"
