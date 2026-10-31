@@ -1,0 +1,23 @@
+# Place at repo root. schema.sql lives at backend/db/schema.sql
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: brightloop_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: brightloop
+      POSTGRES_PASSWORD: brightloop
+      POSTGRES_DB: brightloop
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # runs only on the FIRST start (empty volume)
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brightloop"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
