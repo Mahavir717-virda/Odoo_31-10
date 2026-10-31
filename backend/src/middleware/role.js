@@ -16,3 +16,4 @@ const allow = (...roles) => {
 module.exports = {
   allow,
 };
+

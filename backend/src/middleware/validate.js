@@ -29,3 +29,4 @@ const validate = (zodSchema, source = 'body') => {
 };
 
 module.exports = validate;
+

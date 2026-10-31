@@ -23,3 +23,4 @@ const ok = (res, data = null, message = 'Success', meta = undefined, status = 20
 module.exports = {
   ok,
 };
+
