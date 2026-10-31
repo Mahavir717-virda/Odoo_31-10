@@ -22,9 +22,8 @@ export default function ProtectedRoute({ allowedRoles = null, children = null })
   }
 
   if (allowedRoles && !hasRole(allowedRoles)) {
-    return <Navigate to="/forbidden" replace />;
+    return <Navigate to="/forbidden" state={{ from: location, attemptedPath: location.pathname }} replace />;
   }
 
   return children || <Outlet />;
 }
-

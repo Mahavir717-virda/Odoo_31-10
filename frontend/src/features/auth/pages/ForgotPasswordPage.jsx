@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import AuthCard from '../components/AuthCard';
 import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
+import { useToast } from '../../../components/ui/Toast';
+import { extractValidationErrors } from '../../../api/errorHelper';
 import { forgotPassword } from '../api';
 
 export default function ForgotPasswordPage() {
@@ -10,16 +12,43 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const { toast } = useToast();
+
+  const validate = () => {
+    const errs = {};
+    if (!email.trim()) {
+      errs.email = 'Email address is required.';
+    } else if (!email.includes('@')) {
+      errs.email = 'Please enter a valid email address.';
+    }
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!validate()) return;
+
     setLoading(true);
     try {
-      await forgotPassword(email);
+      await forgotPassword(email.trim());
       setSuccess(true);
+      toast({
+        title: 'Instructions Sent',
+        description: 'Password reset link has been dispatched to your email.',
+        variant: 'success',
+      });
     } catch (err) {
-      setError(err?.message || 'Failed to request password reset link.');
+      const { fieldErrors: serverErrors, generalMessage } = extractValidationErrors(err);
+      setFieldErrors(serverErrors);
+      setError(generalMessage || 'Failed to request password reset link.');
+      toast({
+        title: 'Request Failed',
+        description: generalMessage || 'Please verify your email address.',
+        variant: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -67,9 +96,15 @@ export default function ForgotPasswordPage() {
             label="Email address"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@company.com"
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: null }));
+            }}
+            placeholder="user@example.com"
             required
+            disabled={loading}
+            error={Boolean(fieldErrors.email)}
+            errorMessage={fieldErrors.email}
           />
 
           <Button type="submit" variant="primary" loading={loading} className="w-full">
@@ -80,4 +115,3 @@ export default function ForgotPasswordPage() {
     </AuthCard>
   );
 }
-

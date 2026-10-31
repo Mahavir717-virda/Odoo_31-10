@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import PageHeader from '../../../components/layout/PageHeader';
 import Table from '../../../components/ui/Table';
@@ -7,7 +7,9 @@ import Badge from '../../../components/ui/Badge';
 import SearchInput from '../../../components/ui/SearchInput';
 import Pagination from '../../../components/ui/Pagination';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import { useToast } from '../../../components/ui/Toast';
 import usePaginatedList from '../../../hooks/usePaginatedList';
+import useDebounce from '../../../hooks/useDebounce';
 import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
 import PlanActions from '../components/PlanActions';
@@ -21,6 +23,7 @@ import {
 
 export default function PlanListPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [confirmModal, setConfirmModal] = useState({
     open: false,
@@ -31,17 +34,24 @@ export default function PlanListPage() {
     action: null,
   });
 
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
+
   const {
     data,
     total,
     page,
-    pageSize,
-    search,
+    page_size: pageSize,
     loading,
-    setPage,
-    setSearch,
+    error,
+    set_page: setPage,
+    set_search: setSearch,
     load,
   } = usePaginatedList(getPlans);
+
+  useEffect(() => {
+    setSearch(debouncedSearch);
+  }, [debouncedSearch, setSearch]);
 
   // Close plan with confirmation
   const handleRequestClose = (plan) => {
@@ -52,8 +62,21 @@ export default function PlanListPage() {
       confirmLabel: 'Close Plan',
       confirmVariant: 'danger',
       action: async () => {
-        await closePlan(plan.id);
-        load();
+        try {
+          await closePlan(plan.id);
+          toast({
+            title: 'Plan Closed',
+            description: `Plan "${plan.name}" has been closed.`,
+            variant: 'warning',
+          });
+          load();
+        } catch (err) {
+          toast({
+            title: 'Action Failed',
+            description: err.message || 'Failed to close plan.',
+            variant: 'danger',
+          });
+        }
       },
     });
   };
@@ -70,8 +93,21 @@ export default function PlanListPage() {
       confirmLabel: isCurrentlyActive ? 'Pause Plan' : 'Resume Plan',
       confirmVariant: isCurrentlyActive ? 'danger' : 'primary',
       action: async () => {
-        await togglePausePlan(plan.id);
-        load();
+        try {
+          await togglePausePlan(plan.id);
+          toast({
+            title: isCurrentlyActive ? 'Plan Paused' : 'Plan Resumed',
+            description: `Plan status updated to ${isCurrentlyActive ? 'PAUSED' : 'ACTIVE'}.`,
+            variant: 'success',
+          });
+          load();
+        } catch (err) {
+          toast({
+            title: 'Action Failed',
+            description: err.message || 'Failed to update plan status.',
+            variant: 'danger',
+          });
+        }
       },
     });
   };
@@ -85,8 +121,21 @@ export default function PlanListPage() {
       confirmLabel: 'Renew Plan',
       confirmVariant: 'primary',
       action: async () => {
-        await renewPlan(plan.id);
-        load();
+        try {
+          await renewPlan(plan.id);
+          toast({
+            title: 'Plan Renewed',
+            description: `Plan "${plan.name}" renewed and reactivated.`,
+            variant: 'success',
+          });
+          load();
+        } catch (err) {
+          toast({
+            title: 'Action Failed',
+            description: err.message || 'Failed to renew plan.',
+            variant: 'danger',
+          });
+        }
       },
     });
   };
@@ -100,23 +149,30 @@ export default function PlanListPage() {
       confirmLabel: 'Delete Plan',
       confirmVariant: 'danger',
       action: async () => {
-        await deletePlan(id);
-        load();
+        try {
+          await deletePlan(id);
+          toast({
+            title: 'Plan Deleted',
+            description: 'Plan removed successfully.',
+            variant: 'success',
+          });
+          load();
+        } catch (err) {
+          toast({
+            title: 'Action Failed',
+            description: err.message || 'Failed to delete plan.',
+            variant: 'danger',
+          });
+        }
       },
     });
   };
 
-  const getStatusVariant = (status) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'PAUSED':
-        return 'warning';
-      case 'CLOSED':
-        return 'danger';
-      default:
-        return 'default';
+  const handleModalConfirm = async () => {
+    if (confirmModal.action) {
+      await confirmModal.action();
     }
+    setConfirmModal((prev) => ({ ...prev, open: false, action: null }));
   };
 
   const columns = [
@@ -125,89 +181,67 @@ export default function PlanListPage() {
       label: 'Plan Name',
       render: (row) => (
         <div>
-          <div className="font-semibold text-gray-900">{row.name}</div>
-          <div className="text-xs text-gray-500 uppercase tracking-wider font-mono">
-            {row.billing_period} • Min Qty: {row.min_quantity}
-          </div>
+          <span className="font-semibold text-gray-900">{row.name}</span>
+          <div className="text-xs text-gray-500">Min Qty: {row.min_quantity}</div>
         </div>
       ),
     },
     {
-      key: 'price',
-      label: 'Price',
+      key: 'pricing',
+      label: 'Price & Period',
       render: (row) => (
-        <span className="font-bold text-gray-900">
-          {formatMoney(row.price)}
-          <span className="text-xs font-normal text-gray-500 lowercase">
-            /{row.billing_period?.slice(0, -2) || 'cycle'}
-          </span>
-        </span>
+        <div>
+          <span className="font-semibold text-gray-900">{formatMoney(row.price)}</span>
+          <span className="text-xs text-gray-500"> / {row.billing_period.toLowerCase()}</span>
+        </div>
       ),
     },
     {
-      key: 'dates',
-      label: 'Availability Dates',
+      key: 'validity',
+      label: 'Validity Range',
       render: (row) => (
         <div className="text-xs text-gray-600">
-          <div>From: <span className="font-medium text-gray-800">{formatDate(row.start_date)}</span></div>
-          <div>
-            Until:{' '}
-            <span className="font-medium text-gray-800">
-              {row.end_date ? formatDate(row.end_date) : 'Open / Ongoing'}
-            </span>
-            {row.auto_close && (
-              <span className="ml-1 text-[10px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded">
-                Auto-close
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'flags',
-      label: 'Flags',
-      render: (row) => (
-        <div className="flex flex-wrap gap-1 text-[11px]">
-          {row.closable && (
-            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">
-              Closable
-            </span>
-          )}
-          {row.pausable && (
-            <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-              Pausable
-            </span>
-          )}
-          {row.renewable && (
-            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Renewable
-            </span>
-          )}
+          <div>From: {formatDate(row.start_date)}</div>
+          <div>To: {row.end_date ? formatDate(row.end_date) : 'Open-ended'}</div>
         </div>
       ),
     },
     {
       key: 'status',
       label: 'Status',
+      render: (row) => {
+        let variant = 'default';
+        if (row.status === 'ACTIVE') variant = 'success';
+        else if (row.status === 'PAUSED') variant = 'warning';
+        else if (row.status === 'CLOSED') variant = 'danger';
+        return <Badge variant={variant}>{row.status}</Badge>;
+      },
+    },
+    {
+      key: 'lifecycle',
+      label: 'Capabilities',
       render: (row) => (
-        <Badge variant={getStatusVariant(row.status)}>
-          {row.status}
-        </Badge>
+        <div className="flex flex-wrap gap-1">
+          {row.closable && <Badge variant="default" className="text-[10px]">Closable</Badge>}
+          {row.pausable && <Badge variant="default" className="text-[10px]">Pausable</Badge>}
+          {row.renewable && <Badge variant="default" className="text-[10px]">Renewable</Badge>}
+        </div>
       ),
     },
     {
       key: 'actions',
-      label: 'Lifecycle Actions',
+      label: 'Actions',
       render: (row) => (
-        <PlanActions
-          plan={row}
-          onEdit={(p) => navigate(`/plans/${p.id}`)}
-          onClosePlan={handleRequestClose}
-          onTogglePause={handleRequestTogglePause}
-          onRenew={handleRequestRenew}
-          onDelete={handleRequestDelete}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <PlanActions
+            plan={row}
+            onEdit={() => navigate(`/plans/${row.id}`)}
+            onClosePlan={() => handleRequestClose(row)}
+            onTogglePause={() => handleRequestTogglePause(row)}
+            onRenew={() => handleRequestRenew(row)}
+            onDelete={() => handleRequestDelete(row.id)}
+          />
+        </div>
       ),
     },
   ];
@@ -215,8 +249,8 @@ export default function PlanListPage() {
   return (
     <div>
       <PageHeader
-        title="Subscription Plans (Admin Only)"
-        description="Configure recurring billing frequencies, minimum order thresholds, and lifecycle flags."
+        title="Subscription Plans"
+        description="Configure recurring billing plans, lifecycle rules (pause, close, renew), and period tiers."
         actions={
           <Link to="/plans/new">
             <Button variant="primary">+ Create Plan</Button>
@@ -224,22 +258,50 @@ export default function PlanListPage() {
         }
       />
 
+      {/* Error state banner with retry */}
+      {error && (
+        <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm flex items-center justify-between text-red-800">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>{error.message || 'Failed to load plans.'}</span>
+          </div>
+          <Button size="sm" variant="outline" onClick={load}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
         <div className="max-w-md mb-4">
           <SearchInput
-            value={search}
-            onChange={(val) => setSearch(val)}
+            value={searchInput}
+            onChange={(val) => setSearchInput(val)}
             placeholder="Search plans by name..."
           />
         </div>
 
-        <Table
-          columns={columns}
-          data={data}
-          loading={loading}
-          emptyMessage="No subscription plans configured."
-          onRowClick={(row) => navigate(`/plans/${row.id}`)}
-        />
+        {/* Horizontally scrollable table */}
+        <div className="w-full overflow-x-auto">
+          <Table
+            columns={columns}
+            data={data}
+            loading={loading}
+            emptyMessage={
+              <div className="py-8 text-center">
+                <p className="text-gray-500 font-medium">No subscription plans found.</p>
+                <p className="text-xs text-gray-400 mt-1">Configure your first billing plan to start selling subscriptions.</p>
+                <Link to="/plans/new">
+                  <Button size="sm" variant="outline" className="mt-3">
+                    + Create Plan
+                  </Button>
+                </Link>
+              </div>
+            }
+            onRowClick={(row) => navigate(`/plans/${row.id}`)}
+          />
+        </div>
 
         <div className="mt-4 pt-3 border-t border-gray-100">
           <Pagination
@@ -257,13 +319,8 @@ export default function PlanListPage() {
         message={confirmModal.message}
         confirmLabel={confirmModal.confirmLabel}
         confirmVariant={confirmModal.confirmVariant}
-        onConfirm={async () => {
-          if (confirmModal.action) {
-            await confirmModal.action();
-          }
-          setConfirmModal((prev) => ({ ...prev, open: false }));
-        }}
-        onCancel={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+        onConfirm={handleModalConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, open: false, action: null }))}
       />
     </div>
   );

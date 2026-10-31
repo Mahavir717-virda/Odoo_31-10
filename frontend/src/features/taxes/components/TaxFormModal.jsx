@@ -3,6 +3,7 @@ import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
 import Checkbox from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
+import { extractValidationErrors } from '../../../api/errorHelper';
 
 export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
   const [name, setName] = useState('');
@@ -50,7 +51,9 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
         rate_percent: Number(ratePercent),
         is_active: isActive,
       });
-      onClose();
+    } catch (err) {
+      const { fieldErrors, generalMessage } = extractValidationErrors(err);
+      setErrors({ ...fieldErrors, form: generalMessage });
     } finally {
       setSubmitting(false);
     }
@@ -62,6 +65,12 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
       onClose={onClose}
       title={tax ? 'Edit Tax Rate' : 'Add New Tax Rate'}
     >
+      {errors.form && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {errors.form}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           id="tax-name"
@@ -75,6 +84,7 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
           error={Boolean(errors.name)}
           errorMessage={errors.name}
           required
+          disabled={submitting}
         />
 
         <Input
@@ -93,27 +103,28 @@ export default function TaxFormModal({ open, onClose, onSubmit, tax = null }) {
           error={Boolean(errors.rate_percent)}
           errorMessage={errors.rate_percent}
           required
+          disabled={submitting}
         />
 
         <div className="pt-2">
           <Checkbox
             id="tax-is-active"
-            label="Active tax rate (available for products & invoices)"
+            label="Tax is active and available for product assignments"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
+            disabled={submitting}
           />
         </div>
 
-        <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" loading={submitting}>
-            {tax ? 'Save Changes' : 'Create Tax'}
+            {tax ? 'Save Changes' : 'Create Tax Rate'}
           </Button>
         </div>
       </form>
     </Modal>
   );
 }
-

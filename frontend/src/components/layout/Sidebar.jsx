@@ -182,18 +182,18 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile Backdrop - below 768px (md) */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm md:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container - Hamburger drawer below 768px (md), static sidebar at md+ */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 bg-slate-900 text-slate-100 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 bg-slate-900 text-slate-100 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -207,7 +207,7 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
           <button
             type="button"
-            className="p-1 rounded-md text-slate-400 hover:text-white lg:hidden"
+            className="p-1 rounded-md text-slate-400 hover:text-white md:hidden"
             onClick={onClose}
             aria-label="Close menu"
           >

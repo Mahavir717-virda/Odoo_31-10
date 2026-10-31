@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import PageHeader from '../../../components/layout/PageHeader';
 import Table from '../../../components/ui/Table';
@@ -8,7 +8,9 @@ import SearchInput from '../../../components/ui/SearchInput';
 import Select from '../../../components/ui/Select';
 import Pagination from '../../../components/ui/Pagination';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import { useToast } from '../../../components/ui/Toast';
 import usePaginatedList from '../../../hooks/usePaginatedList';
+import useDebounce from '../../../hooks/useDebounce';
 import { formatMoney } from '../../../utils/formatMoney';
 import { formatDate } from '../../../utils/formatDate';
 import UsageProgress from '../components/UsageProgress';
@@ -16,24 +18,32 @@ import { getDiscounts, deleteDiscount } from '../api';
 
 export default function DiscountListPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [selectedScope, setSelectedScope] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
+
   const {
     data,
     total,
     page,
-    pageSize,
-    search,
+    page_size: pageSize,
     loading,
-    setPage,
-    setSearch,
-    setFilters,
+    error,
+    set_page: setPage,
+    set_search: setSearch,
+    set_filters: setFilters,
     load,
   } = usePaginatedList(getDiscounts);
+
+  useEffect(() => {
+    setSearch(debouncedSearch);
+  }, [debouncedSearch, setSearch]);
 
   const handleScopeChange = (e) => {
     const val = e.target.value;
@@ -63,8 +73,19 @@ export default function DiscountListPage() {
     setDeleting(true);
     try {
       await deleteDiscount(deleteTarget.id);
+      toast({
+        title: 'Discount Deleted',
+        description: `Coupon "${deleteTarget.name}" has been deleted.`,
+        variant: 'success',
+      });
       setDeleteTarget(null);
       load();
+    } catch (err) {
+      toast({
+        title: 'Delete Failed',
+        description: err.message || 'Failed to delete discount.',
+        variant: 'danger',
+      });
     } finally {
       setDeleting(false);
     }
@@ -230,14 +251,29 @@ export default function DiscountListPage() {
         }
       />
 
+      {/* Error state banner with retry */}
+      {error && (
+        <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-sm flex items-center justify-between text-red-800">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>{error.message || 'Failed to load discounts.'}</span>
+          </div>
+          <Button size="sm" variant="outline" onClick={load}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
         {/* Filters and Search Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 items-end">
           <div>
             <span className="block text-xs font-medium text-gray-700 mb-1">Search</span>
             <SearchInput
-              value={search}
-              onChange={(val) => setSearch(val)}
+              value={searchInput}
+              onChange={(val) => setSearchInput(val)}
               placeholder="Search discounts by name or code..."
             />
           </div>
@@ -275,13 +311,26 @@ export default function DiscountListPage() {
           </div>
         </div>
 
-        <Table
-          columns={columns}
-          data={data}
-          loading={loading}
-          emptyMessage="No discounts found matching your criteria."
-          onRowClick={(row) => navigate(`/discounts/${row.id}`)}
-        />
+        {/* Horizontally scrollable table */}
+        <div className="w-full overflow-x-auto">
+          <Table
+            columns={columns}
+            data={data}
+            loading={loading}
+            emptyMessage={
+              <div className="py-8 text-center">
+                <p className="text-gray-500 font-medium">No discounts found matching your criteria.</p>
+                <p className="text-xs text-gray-400 mt-1">Create a promotional campaign or adjust search filters.</p>
+                <Link to="/discounts/new">
+                  <Button size="sm" variant="outline" className="mt-3">
+                    + Create Discount
+                  </Button>
+                </Link>
+              </div>
+            }
+            onRowClick={(row) => navigate(`/discounts/${row.id}`)}
+          />
+        </div>
 
         <div className="mt-4 pt-3 border-t border-gray-100">
           <Pagination

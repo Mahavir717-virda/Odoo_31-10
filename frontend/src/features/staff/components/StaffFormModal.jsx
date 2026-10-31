@@ -4,6 +4,7 @@ import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Checkbox from '../../../components/ui/Checkbox';
 import Button from '../../../components/ui/Button';
+import { extractValidationErrors } from '../../../api/errorHelper';
 
 export default function StaffFormModal({ open, onClose, onSubmit, staff = null }) {
   const [name, setName] = useState('');
@@ -39,8 +40,10 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
     if (!name.trim()) {
       errs.name = 'Full name is required.';
     }
-    if (!email.trim() || !email.includes('@')) {
-      errs.email = 'A valid email address is required.';
+    if (!email.trim()) {
+      errs.email = 'Email address is required.';
+    } else if (!email.includes('@')) {
+      errs.email = 'Please enter a valid email address.';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -60,7 +63,9 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
         company: company.trim(),
         is_active: isActive,
       });
-      onClose();
+    } catch (err) {
+      const { fieldErrors, generalMessage } = extractValidationErrors(err);
+      setErrors({ ...fieldErrors, form: generalMessage });
     } finally {
       setSubmitting(false);
     }
@@ -70,86 +75,98 @@ export default function StaffFormModal({ open, onClose, onSubmit, staff = null }
     <Modal
       open={open}
       onClose={onClose}
-      title={staff ? 'Edit Staff Member' : 'Add New Staff Member'}
+      title={staff ? 'Edit Staff Member' : 'Add Staff Member'}
     >
+      {errors.form && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {errors.form}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          id="staff-modal-name"
+          id="staff-name"
           label="Full Name"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
           }}
-          placeholder="e.g. David Kim"
+          placeholder="e.g. John Smith"
+          required
+          disabled={submitting}
           error={Boolean(errors.name)}
           errorMessage={errors.name}
-          required
         />
 
         <Input
-          id="staff-modal-email"
-          label="Email Address"
+          id="staff-email"
+          label="Email address"
           type="email"
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
             if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
           }}
-          placeholder="david.kim@brightloop.test"
+          placeholder="john.smith@brightloop.test"
+          required
+          disabled={submitting || Boolean(staff)}
           error={Boolean(errors.email)}
           errorMessage={errors.email}
-          required
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
-            id="staff-modal-role"
-            label="Role Permission"
+            id="staff-role"
+            label="System Role"
             value={role}
             onChange={(e) => setRole(e.target.value)}
             options={[
-              { value: 'STAFF', label: 'Staff (Standard Ops)' },
-              { value: 'ADMIN', label: 'Admin (Full Access)' },
+              { value: 'STAFF', label: 'Staff Member (Operator)' },
+              { value: 'ADMIN', label: 'Administrator (Full Access)' },
             ]}
+            disabled={submitting}
           />
 
           <Input
-            id="staff-modal-phone"
-            label="Phone"
+            id="staff-phone"
+            label="Phone Number"
+            type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+1-555-0150"
+            placeholder="+1 555-0155"
+            disabled={submitting}
           />
         </div>
 
         <Input
-          id="staff-modal-company"
+          id="staff-company"
           label="Department / Unit"
           value={company}
           onChange={(e) => setCompany(e.target.value)}
-          placeholder="e.g. Brightloop Operations"
+          placeholder="Customer Success, Operations, etc."
+          disabled={submitting}
         />
 
-        <div className="pt-1">
+        <div className="pt-2">
           <Checkbox
-            id="staff-modal-is-active"
-            label="Active account (can log into the system)"
+            id="staff-is-active"
+            label="Account Active (User can authenticate and perform tasks)"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
+            disabled={submitting}
           />
         </div>
 
-        <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" loading={submitting}>
-            {staff ? 'Save Changes' : 'Add Staff Member'}
+            {staff ? 'Save Changes' : 'Create Staff'}
           </Button>
         </div>
       </form>
     </Modal>
   );
 }
-
