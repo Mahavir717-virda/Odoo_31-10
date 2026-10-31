@@ -5,18 +5,18 @@ import SubscriptionDetailPage from './pages/SubscriptionDetailPage';
 export const SUBSCRIPTIONS_ROUTES = [
   {
     path: '/subscriptions',
-    element: <SubscriptionListPage />,
+    element: SubscriptionListPage,
   },
   {
     path: '/subscriptions/create',
-    element: <SubscriptionFormPage />,
+    element: SubscriptionFormPage,
   },
   {
     path: '/subscriptions/create-from-template/:id',
-    element: <SubscriptionFormPage />,
+    element: SubscriptionFormPage,
   },
   {
     path: '/subscriptions/:id',
-    element: <SubscriptionDetailPage />,
+    element: SubscriptionDetailPage,
   },
 ];

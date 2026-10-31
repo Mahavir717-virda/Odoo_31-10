@@ -50,4 +50,3 @@ export default function ProfileCard({ user: propUser = null, onEdit = null }) {
     </Card>
   );
 }
-
